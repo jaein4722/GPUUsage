@@ -28,13 +28,13 @@ It connects over `ssh`, runs `nvidia-smi` on the target server, and turns the re
 ## Screenshots
 
 <div align="center">
-  <img src="image2.png" alt="GPUUsage menu bar summary" width="320">
+  <img src="assets/menu-bar-summary.png" alt="GPUUsage menu bar summary" width="320">
 </div>
 
 <p align="center"><em>At-a-glance menu bar summary</em></p>
 
 <div align="center">
-  <img src="image1.png" alt="GPUUsage popover UI" width="620">
+  <img src="assets/popover-overview.png" alt="GPUUsage popover UI" width="620">
 </div>
 
 <p align="center"><em>Detailed popover with per-GPU status, process details, and notification controls</em></p>
@@ -57,8 +57,7 @@ It connects over `ssh`, runs `nvidia-smi` on the target server, and turns the re
 ### Homebrew
 
 ```bash
-brew tap jaein4722/tap
-brew install --cask gpuusage
+brew install --cask jaein4722/tap/gpuusage
 ```
 
 ### GitHub Releases
