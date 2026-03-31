@@ -15,21 +15,22 @@ struct SSHMetricsFetcher: Sendable {
         case missingTarget
 
         var errorDescription: String? {
+            let language = AppLocalizer.currentLanguage()
             switch self {
             case .commandFailed(_, let message):
-                return message.isEmpty ? "ssh command failed." : message
+                return message.isEmpty ? language.text("ssh command failed.", "ssh 명령이 실패했습니다.") : message
             case .emptyResponse:
-                return "nvidia-smi output was empty."
+                return language.text("nvidia-smi output was empty.", "nvidia-smi 출력이 비어 있습니다.")
             case .invalidOutput(let line):
-                return "nvidia-smi output could not be parsed: \(line)"
+                return language.text("nvidia-smi output could not be parsed: \(line)", "nvidia-smi 출력을 파싱할 수 없습니다: \(line)")
             case .invalidProcessOutput(let line):
-                return "nvidia-smi process output could not be parsed: \(line)"
+                return language.text("nvidia-smi process output could not be parsed: \(line)", "nvidia-smi process 출력을 파싱할 수 없습니다: \(line)")
             case .invalidPSOutput(let line):
-                return "ps output could not be parsed: \(line)"
+                return language.text("ps output could not be parsed: \(line)", "ps 출력을 파싱할 수 없습니다: \(line)")
             case .askPassScriptCreationFailed:
-                return "SSH 비밀번호 인증을 위한 임시 스크립트를 만들지 못했습니다."
+                return language.text("Failed to create the temporary script for SSH password authentication.", "SSH 비밀번호 인증을 위한 임시 스크립트를 만들지 못했습니다.")
             case .missingTarget:
-                return "SSH target is missing."
+                return language.text("SSH target is missing.", "SSH target이 비어 있습니다.")
             }
         }
     }

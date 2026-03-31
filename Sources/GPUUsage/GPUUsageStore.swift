@@ -30,6 +30,14 @@ final class GPUUsageStore: ObservableObject {
     private var pollingTask: Task<Void, Never>?
     private var idleWatchTrackingStates = [String: GPUIdleWatchTrackingState]()
 
+    private var language: AppInterfaceLanguage {
+        settings.resolvedLanguage
+    }
+
+    private func t(_ english: String, _ korean: String) -> String {
+        language.text(english, korean)
+    }
+
     init(
         fetcher: SSHMetricsFetcher = SSHMetricsFetcher(),
         notificationManager: ProcessExitNotificationManager = ProcessExitNotificationManager(),
@@ -42,7 +50,7 @@ final class GPUUsageStore: ObservableObject {
         self.watchedProcesses = Self.loadWatchedProcesses(from: userDefaults)
         self.watchedIdleGPUs = Self.loadWatchedIdleGPUs(from: userDefaults)
         self.notificationHistory = Self.loadNotificationHistory(from: userDefaults)
-        self.lastErrorMessage = self.settings.isConfigured ? nil : "SSH target를 입력하면 polling을 시작합니다."
+        self.lastErrorMessage = self.settings.isConfigured ? nil : self.settings.resolvedLanguage.text("Enter an SSH target to start polling.", "SSH target를 입력하면 polling을 시작합니다.")
 
         configurePolling(resetState: false)
         Task { [weak self] in
@@ -62,7 +70,7 @@ final class GPUUsageStore: ObservableObject {
         guard settings.isConfigured else { return "GPU --" }
 
         if let snapshot {
-            return settings.menuBarDisplayMode.titleText(for: snapshot)
+            return settings.menuBarDisplayMode.titleText(for: snapshot, language: language)
         }
 
         if isRefreshing {
@@ -86,15 +94,18 @@ final class GPUUsageStore: ObservableObject {
 
     var menuBarToolTip: String {
         guard settings.isConfigured else {
-            return "GPUUsage: 서버를 설정하면 polling을 시작합니다."
+            return t("GPUUsage: configure a server to start polling.", "GPUUsage: 서버를 설정하면 polling을 시작합니다.")
         }
 
         if let snapshot {
-            return "Average \(snapshot.averageUtilization)% · Busy \(snapshot.busyCount)/\(snapshot.gpus.count) · Processes \(snapshot.totalProcessCount)"
+            return t(
+                "Average \(snapshot.averageUtilization)% · Busy \(snapshot.busyCount)/\(snapshot.gpus.count) · Processes \(snapshot.totalProcessCount)",
+                "평균 \(snapshot.averageUtilization)% · 사용중 \(snapshot.busyCount)/\(snapshot.gpus.count) · 프로세스 \(snapshot.totalProcessCount)"
+            )
         }
 
         if isRefreshing {
-            return "GPUUsage: 서버 상태를 새로 가져오는 중입니다."
+            return t("GPUUsage: refreshing server status.", "GPUUsage: 서버 상태를 새로 가져오는 중입니다.")
         }
 
         if let lastErrorMessage {
@@ -184,7 +195,7 @@ final class GPUUsageStore: ObservableObject {
         userDefaults.removeObject(forKey: watchedProcessesKey)
         userDefaults.removeObject(forKey: watchedIdleGPUsKey)
         userDefaults.removeObject(forKey: notificationHistoryKey)
-        lastErrorMessage = "SSH target를 입력하면 polling을 시작합니다."
+        lastErrorMessage = t("Enter an SSH target to start polling.", "SSH target를 입력하면 polling을 시작합니다.")
         noticeMessage = nil
         configurePolling(resetState: false)
     }
@@ -230,7 +241,7 @@ final class GPUUsageStore: ObservableObject {
 
         let removedWatch = watchedProcesses.remove(at: existingIndex)
         persistWatchedProcesses()
-        noticeMessage = "프로세스 종료 알림을 해제했습니다."
+        noticeMessage = t("Process exit alert disabled.", "프로세스 종료 알림을 해제했습니다.")
         appendNotificationHistory(NotificationHistoryEntry(kind: .watchRemoved, watch: removedWatch))
     }
 
@@ -240,7 +251,7 @@ final class GPUUsageStore: ObservableObject {
         let removedWatch = watchedIdleGPUs.remove(at: existingIndex)
         idleWatchTrackingStates.removeValue(forKey: removedWatch.id)
         persistWatchedIdleGPUs()
-        noticeMessage = "GPU idle 알림을 해제했습니다."
+        noticeMessage = t("GPU idle alert disabled.", "GPU idle 알림을 해제했습니다.")
         appendNotificationHistory(NotificationHistoryEntry(kind: .idleWatchRemoved, idleWatch: removedWatch))
     }
 
@@ -255,15 +266,15 @@ final class GPUUsageStore: ObservableObject {
 
             switch state {
             case .authorized:
-                noticeMessage = "macOS 알림 권한을 허용했습니다."
+                noticeMessage = t("macOS notification permission enabled.", "macOS 알림 권한을 허용했습니다.")
                 appendNotificationHistory(NotificationHistoryEntry(kind: .permissionEnabled, connectionLabel: settings.sshTarget))
             case .denied:
-                noticeMessage = "알림 권한이 거부되었습니다. 시스템 설정에서 GPUUsage 알림을 허용하세요."
+                noticeMessage = t("Notification permission was denied. Enable GPUUsage notifications in System Settings.", "알림 권한이 거부되었습니다. 시스템 설정에서 GPUUsage 알림을 허용하세요.")
                 appendNotificationHistory(NotificationHistoryEntry(kind: .permissionDenied, connectionLabel: settings.sshTarget))
             case .notDetermined:
-                noticeMessage = "알림 권한 상태를 확인하지 못했습니다."
+                noticeMessage = t("Could not determine the notification permission state.", "알림 권한 상태를 확인하지 못했습니다.")
             case .unsupported:
-                noticeMessage = "번들 앱(.app)으로 실행할 때만 macOS 알림을 사용할 수 있습니다."
+                noticeMessage = t("macOS notifications are available only when running the bundled app (.app).", "번들 앱(.app)으로 실행할 때만 macOS 알림을 사용할 수 있습니다.")
             }
         }
     }
@@ -274,14 +285,14 @@ final class GPUUsageStore: ObservableObject {
             notificationPermissionState = state
 
             guard state == .authorized else {
-                noticeMessage = "먼저 macOS 알림 권한을 허용하세요."
+                noticeMessage = t("Allow macOS notification permission first.", "먼저 macOS 알림 권한을 허용하세요.")
                 return
             }
 
             let didSchedule = await notificationManager.sendTestNotification()
             noticeMessage = didSchedule
-                ? "1초 뒤 테스트 알림을 보냅니다."
-                : "테스트 알림 예약에 실패했습니다."
+                ? t("A test notification will be sent in 1 second.", "1초 뒤 테스트 알림을 보냅니다.")
+                : t("Failed to schedule the test notification.", "테스트 알림 예약에 실패했습니다.")
 
             if didSchedule {
                 appendNotificationHistory(NotificationHistoryEntry(kind: .testNotificationScheduled, connectionLabel: settings.sshTarget))
@@ -298,7 +309,7 @@ final class GPUUsageStore: ObservableObject {
 
         guard settings.isConfigured else {
             snapshot = nil
-            lastErrorMessage = "SSH target를 입력하면 polling을 시작합니다."
+            lastErrorMessage = t("Enter an SSH target to start polling.", "SSH target를 입력하면 polling을 시작합니다.")
             return
         }
 
@@ -353,7 +364,7 @@ final class GPUUsageStore: ObservableObject {
             let data = try JSONEncoder().encode(settings)
             userDefaults.set(data, forKey: settingsKey)
         } catch {
-            lastErrorMessage = "설정을 저장하지 못했습니다: \(error.localizedDescription)"
+            lastErrorMessage = t("Failed to save settings: \(error.localizedDescription)", "설정을 저장하지 못했습니다: \(error.localizedDescription)")
         }
     }
 
@@ -362,7 +373,7 @@ final class GPUUsageStore: ObservableObject {
             let data = try JSONEncoder().encode(watchedProcesses)
             userDefaults.set(data, forKey: watchedProcessesKey)
         } catch {
-            lastErrorMessage = "감시 목록을 저장하지 못했습니다: \(error.localizedDescription)"
+            lastErrorMessage = t("Failed to save watches: \(error.localizedDescription)", "감시 목록을 저장하지 못했습니다: \(error.localizedDescription)")
         }
     }
 
@@ -371,7 +382,7 @@ final class GPUUsageStore: ObservableObject {
             let data = try JSONEncoder().encode(watchedIdleGPUs)
             userDefaults.set(data, forKey: watchedIdleGPUsKey)
         } catch {
-            lastErrorMessage = "GPU idle 감시 목록을 저장하지 못했습니다: \(error.localizedDescription)"
+            lastErrorMessage = t("Failed to save GPU idle watches: \(error.localizedDescription)", "GPU idle 감시 목록을 저장하지 못했습니다: \(error.localizedDescription)")
         }
     }
 
@@ -380,7 +391,7 @@ final class GPUUsageStore: ObservableObject {
             let data = try JSONEncoder().encode(notificationHistory)
             userDefaults.set(data, forKey: notificationHistoryKey)
         } catch {
-            lastErrorMessage = "알림 이력을 저장하지 못했습니다: \(error.localizedDescription)"
+            lastErrorMessage = t("Failed to save notification history: \(error.localizedDescription)", "알림 이력을 저장하지 못했습니다: \(error.localizedDescription)")
         }
     }
 
@@ -420,7 +431,7 @@ final class GPUUsageStore: ObservableObject {
         } catch is CancellationError {
             return
         } catch {
-            lastErrorMessage = "프로세스 상세를 가져오지 못했습니다: \(error.localizedDescription)"
+            lastErrorMessage = t("Failed to load process details: \(error.localizedDescription)", "프로세스 상세를 가져오지 못했습니다: \(error.localizedDescription)")
         }
     }
 
@@ -479,21 +490,21 @@ final class GPUUsageStore: ObservableObject {
         if let existingIndex = watchedProcesses.firstIndex(where: { $0.matches(process) && $0.connectionFingerprint == settings.connectionFingerprint }) {
             let removedWatch = watchedProcesses.remove(at: existingIndex)
             persistWatchedProcesses()
-            noticeMessage = "프로세스 종료 알림을 해제했습니다."
+            noticeMessage = t("Process exit alert disabled.", "프로세스 종료 알림을 해제했습니다.")
             appendNotificationHistory(NotificationHistoryEntry(kind: .watchRemoved, watch: removedWatch))
             return
         }
 
         guard notificationManager.isSupportedEnvironment else {
             notificationPermissionState = .unsupported
-            noticeMessage = "프로세스 종료 알림은 번들 앱(.app)으로 실행할 때만 사용할 수 있습니다."
+            noticeMessage = t("Process exit alerts are available only when running the bundled app (.app).", "프로세스 종료 알림은 번들 앱(.app)으로 실행할 때만 사용할 수 있습니다.")
             return
         }
 
         let isAuthorized = await notificationManager.requestAuthorizationIfNeeded()
         notificationPermissionState = await notificationManager.authorizationStatus()
         guard isAuthorized else {
-            noticeMessage = "macOS 알림 권한이 없어 종료 알림을 등록하지 못했습니다."
+            noticeMessage = t("Process exit alert could not be enabled because macOS notification permission is missing.", "macOS 알림 권한이 없어 종료 알림을 등록하지 못했습니다.")
             return
         }
 
@@ -507,7 +518,7 @@ final class GPUUsageStore: ObservableObject {
             return lhs.gpuIndex < rhs.gpuIndex
         }
         persistWatchedProcesses()
-        noticeMessage = "프로세스 종료 알림을 등록했습니다."
+        noticeMessage = t("Process exit alert enabled.", "프로세스 종료 알림을 등록했습니다.")
         appendNotificationHistory(NotificationHistoryEntry(kind: .watchAdded, watch: newWatch))
     }
 
@@ -516,21 +527,21 @@ final class GPUUsageStore: ObservableObject {
             let removedWatch = watchedIdleGPUs.remove(at: existingIndex)
             idleWatchTrackingStates.removeValue(forKey: removedWatch.id)
             persistWatchedIdleGPUs()
-            noticeMessage = "GPU idle 알림을 해제했습니다."
+            noticeMessage = t("GPU idle alert disabled.", "GPU idle 알림을 해제했습니다.")
             appendNotificationHistory(NotificationHistoryEntry(kind: .idleWatchRemoved, idleWatch: removedWatch))
             return
         }
 
         guard notificationManager.isSupportedEnvironment else {
             notificationPermissionState = .unsupported
-            noticeMessage = "GPU idle 알림은 번들 앱(.app)으로 실행할 때만 사용할 수 있습니다."
+            noticeMessage = t("GPU idle alerts are available only when running the bundled app (.app).", "GPU idle 알림은 번들 앱(.app)으로 실행할 때만 사용할 수 있습니다.")
             return
         }
 
         let isAuthorized = await notificationManager.requestAuthorizationIfNeeded()
         notificationPermissionState = await notificationManager.authorizationStatus()
         guard isAuthorized else {
-            noticeMessage = "macOS 알림 권한이 없어 GPU idle 알림을 등록하지 못했습니다."
+            noticeMessage = t("GPU idle alert could not be enabled because macOS notification permission is missing.", "macOS 알림 권한이 없어 GPU idle 알림을 등록하지 못했습니다.")
             return
         }
 
@@ -541,7 +552,7 @@ final class GPUUsageStore: ObservableObject {
             idleWatchTrackingStates[newWatch.id] = GPUIdleWatchTrackingState(idleSince: snapshot?.takenAt ?? Date())
         }
         persistWatchedIdleGPUs()
-        noticeMessage = "GPU idle 알림을 등록했습니다."
+        noticeMessage = t("GPU idle alert enabled.", "GPU idle 알림을 등록했습니다.")
         appendNotificationHistory(
             NotificationHistoryEntry(
                 kind: .idleWatchAdded,
@@ -590,11 +601,11 @@ final class GPUUsageStore: ObservableObject {
             persistWatchedProcesses()
 
             if notifiedProcesses.isEmpty {
-                noticeMessage = "프로세스 종료는 감지했지만 macOS 알림 예약에는 실패했습니다."
+                noticeMessage = t("A process exit was detected, but scheduling the macOS notification failed.", "프로세스 종료는 감지했지만 macOS 알림 예약에는 실패했습니다.")
             } else if notifiedProcesses.count == 1 {
-                noticeMessage = "\(notifiedProcesses[0]) 종료 알림을 보냈습니다."
+                noticeMessage = t("Sent an exit alert for \(notifiedProcesses[0]).", "\(notifiedProcesses[0]) 종료 알림을 보냈습니다.")
             } else {
-                noticeMessage = "\(notifiedProcesses.count)개 프로세스 종료 알림을 보냈습니다."
+                noticeMessage = t("Sent exit alerts for \(notifiedProcesses.count) processes.", "\(notifiedProcesses.count)개 프로세스 종료 알림을 보냈습니다.")
             }
         } catch {
             return
@@ -668,12 +679,12 @@ final class GPUUsageStore: ObservableObject {
 
         if !notifiedGPUIndices.isEmpty {
             if notifiedGPUIndices.count == 1, let gpuIndex = notifiedGPUIndices.first {
-                noticeMessage = "GPU \(gpuIndex) idle 알림을 보냈습니다."
+                noticeMessage = t("Sent a GPU idle alert for GPU \(gpuIndex).", "GPU \(gpuIndex) idle 알림을 보냈습니다.")
             } else {
-                noticeMessage = "\(notifiedGPUIndices.count)개 GPU idle 알림을 보냈습니다."
+                noticeMessage = t("Sent GPU idle alerts for \(notifiedGPUIndices.count) GPUs.", "\(notifiedGPUIndices.count)개 GPU idle 알림을 보냈습니다.")
             }
         } else if !failedNotificationGPUIndices.isEmpty {
-            noticeMessage = "GPU idle 상태는 감지했지만 macOS 알림 예약에는 실패했습니다."
+            noticeMessage = t("A GPU idle state was detected, but scheduling the macOS notification failed.", "GPU idle 상태는 감지했지만 macOS 알림 예약에는 실패했습니다.")
         }
     }
 

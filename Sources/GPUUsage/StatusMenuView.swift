@@ -9,6 +9,14 @@ struct StatusMenuView: View {
         store.snapshot?.gpus.map(\.id) ?? []
     }
 
+    private var language: AppInterfaceLanguage {
+        store.settings.resolvedLanguage
+    }
+
+    private func t(_ english: String, _ korean: String) -> String {
+        language.text(english, korean)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
@@ -49,7 +57,7 @@ struct StatusMenuView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Label(
-                    store.settings.isConfigured ? store.settings.sshTarget : "No server configured",
+                    store.settings.isConfigured ? store.settings.sshTarget : t("No server configured", "서버 미설정"),
                     systemImage: "server.rack"
                 )
                 .font(.headline)
@@ -66,7 +74,7 @@ struct StatusMenuView: View {
                     .buttonStyle(.plain)
                     .disabled(store.isRefreshing)
                     .foregroundStyle(store.isRefreshing ? .secondary : .primary)
-                    .help("Refresh now")
+                    .help(t("Refresh now", "지금 새로고침"))
                 }
 
                 if store.isRefreshing {
@@ -77,18 +85,18 @@ struct StatusMenuView: View {
 
             if let snapshot = store.snapshot {
                 HStack(spacing: 6) {
-                    SummaryPill(title: "Avg", value: "\(snapshot.averageUtilization)%")
-                    SummaryPill(title: "Busy", value: "\(snapshot.busyCount)/\(snapshot.gpus.count)")
-                    SummaryPill(title: "Proc", value: "\(snapshot.totalProcessCount)")
-                    UpdatedPill(date: snapshot.takenAt)
+                    SummaryPill(title: t("Avg", "평균"), value: "\(snapshot.averageUtilization)%")
+                    SummaryPill(title: t("Busy", "사용중"), value: "\(snapshot.busyCount)/\(snapshot.gpus.count)")
+                    SummaryPill(title: t("Proc", "프로세스"), value: "\(snapshot.totalProcessCount)")
+                    UpdatedPill(date: snapshot.takenAt, language: language)
                 }
             } else {
-                Text(store.settings.isConfigured ? "첫 polling 결과를 기다리는 중입니다." : "우클릭 메뉴에서 Settings를 열어 서버를 설정하세요.")
+                Text(store.settings.isConfigured ? t("Waiting for the first polling result.", "첫 polling 결과를 기다리는 중입니다.") : t("Right-click the menu bar item and open Settings to configure a server.", "우클릭 메뉴에서 Settings를 열어 서버를 설정하세요."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Text("Right-click the menu bar item for settings and quit.")
+            Text(t("Right-click the menu bar item for settings and quit.", "설정과 종료는 메뉴바 아이콘 우클릭으로 열 수 있습니다."))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
 
@@ -142,7 +150,7 @@ struct StatusMenuView: View {
     }
 
     private var emptyState: some View {
-        Text("표시할 GPU 데이터가 아직 없습니다.")
+        Text(t("No GPU data is available yet.", "표시할 GPU 데이터가 아직 없습니다."))
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -163,14 +171,14 @@ struct StatusMenuView: View {
         var parts = [String]()
 
         if processCount > 0 {
-            parts.append("\(processCount) process exit")
+            parts.append(t("\(processCount) process exit", "\(processCount)개 프로세스 종료"))
         }
 
         if idleCount > 0 {
-            parts.append("\(idleCount) GPU idle")
+            parts.append(t("\(idleCount) GPU idle", "\(idleCount)개 GPU idle"))
         }
 
-        return "Watching " + parts.joined(separator: " · ")
+        return t("Watching ", "감시 중: ") + parts.joined(separator: " · ")
     }
 }
 
@@ -184,6 +192,12 @@ private struct GPUListRow: View {
     let toggleProcessExitWatch: (GPUProcessReading) -> Void
     let toggleExpansion: () -> Void
 
+    private let language = AppLocalizer.currentLanguage()
+
+    private func t(_ english: String, _ korean: String) -> String {
+        language.text(english, korean)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .top, spacing: 8) {
@@ -195,7 +209,7 @@ private struct GPUListRow: View {
                 }
                 .buttonStyle(.plain)
                 .contentShape(Rectangle())
-                .help(isWatchingIdle ? "GPU idle 알림 해제" : "GPU idle 알림 받기")
+                .help(isWatchingIdle ? t("Disable GPU idle alert", "GPU idle 알림 해제") : t("Enable GPU idle alert", "GPU idle 알림 받기"))
 
                 Button(action: toggleExpansion) {
                     VStack(alignment: .leading, spacing: 7) {
@@ -222,14 +236,14 @@ private struct GPUListRow: View {
 
                         HStack(spacing: 10) {
                             ThinMetricBar(
-                                title: "Util",
+                                title: t("Util", "사용률"),
                                 valueText: "\(gpu.utilization)%",
                                 ratio: gpu.utilizationRatio,
                                 tint: Color(red: 0.93, green: 0.45, blue: 0.15)
                             )
 
                             ThinMetricBar(
-                                title: "Mem",
+                                title: t("Mem", "메모리"),
                                 valueText: "\(gpu.memoryUsagePercent)% · \(gpu.memoryUsedMB)/\(gpu.memoryTotalMB)MB",
                                 ratio: gpu.memoryUsageRatio,
                                 tint: Color(red: 0.12, green: 0.54, blue: 0.94)
@@ -247,7 +261,7 @@ private struct GPUListRow: View {
                     Color.clear
                         .frame(width: 26, height: 1)
 
-                    Label("Idle notification armed", systemImage: "star.fill")
+                    Label(t("Idle notification armed", "Idle 알림 설정됨"), systemImage: "star.fill")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.yellow)
                         .padding(.horizontal, 7)
@@ -268,14 +282,14 @@ private struct GPUListRow: View {
                             ProgressView()
                                 .controlSize(.small)
 
-                            Text("Loading process details...")
+                            Text(t("Loading process details...", "프로세스 상세를 불러오는 중..."))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
 
                     if gpu.processes.isEmpty {
-                        Text("이 GPU에서 보고된 active compute process가 없습니다.")
+                        Text(t("There are no active compute processes reported on this GPU.", "이 GPU에서 보고된 active compute process가 없습니다."))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
@@ -335,10 +349,11 @@ private struct SummaryPill: View {
 
 private struct UpdatedPill: View {
     let date: Date
+    let language: AppInterfaceLanguage
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            SummaryPill(title: "Updated", value: relativeText(referenceDate: context.date))
+            SummaryPill(title: language.text("Updated", "업데이트"), value: relativeText(referenceDate: context.date))
                 .help(date.formatted(date: .omitted, time: .standard))
         }
     }
@@ -409,6 +424,7 @@ private struct ProcessRow: View {
     let isWatched: Bool
     let toggleWatch: () -> Void
     private let userColumnWidth: CGFloat = 52
+    private let language = AppLocalizer.currentLanguage()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -441,7 +457,7 @@ private struct ProcessRow: View {
                         Image(systemName: isWatched ? "bell.fill" : "bell")
                             .font(.system(size: 11, weight: .semibold))
 
-                        Text(isWatched ? "Watching" : "Notify")
+                        Text(isWatched ? language.text("Watching", "감시 중") : language.text("Notify", "알림"))
                             .font(.caption2.weight(.semibold))
                     }
                     .foregroundStyle(isWatched ? Color.orange : Color.secondary)
@@ -459,7 +475,7 @@ private struct ProcessRow: View {
                 .contentShape(Capsule(style: .continuous))
                 .buttonStyle(.plain)
                 .animation(.easeInOut(duration: 0.16), value: isWatched)
-                .help(isWatched ? "프로세스 종료 알림 해제" : "프로세스 종료 알림 받기")
+                .help(isWatched ? language.text("Disable process exit alert", "프로세스 종료 알림 해제") : language.text("Enable process exit alert", "프로세스 종료 알림 받기"))
             }
  
             if process.showsSeparateCommandSummary {

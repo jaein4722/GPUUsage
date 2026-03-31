@@ -63,10 +63,11 @@ struct ProcessExitNotificationManager {
 
     func sendExitNotification(for watch: ProcessExitWatch) async -> Bool {
         guard let center else { return false }
+        let language = AppLocalizer.currentLanguage()
 
         let content = UNMutableNotificationContent()
-        content.title = "\(watch.displayProcessName) finished"
-        content.body = watch.subtitle
+        content.title = language.text("\(watch.displayProcessName) finished", "\(watch.displayProcessName) 종료")
+        content.body = watch.subtitle(language: language)
         content.sound = .default
         content.interruptionLevel = .active
 
@@ -86,14 +87,15 @@ struct ProcessExitNotificationManager {
 
     func sendIdleNotification(for watch: GPUIdleWatch, idleDurationSeconds: Int, memoryUsedMB: Int) async -> Bool {
         guard let center else { return false }
+        let language = AppLocalizer.currentLanguage()
 
         let content = UNMutableNotificationContent()
-        content.title = "\(watch.title) is idle"
+        content.title = language.text("\(watch.title) is idle", "\(watch.title) idle 상태")
         content.body = [
             watch.connectionLabel,
             watch.gpuName,
-            "Idle \(idleDurationSeconds)s",
-            "Mem \(memoryUsedMB) MB"
+            language.text("Idle \(idleDurationSeconds)s", "Idle \(idleDurationSeconds)초"),
+            language.text("Mem \(memoryUsedMB) MB", "메모리 \(memoryUsedMB) MB")
         ]
         .filter { !$0.isEmpty }
         .joined(separator: " · ")
@@ -116,10 +118,11 @@ struct ProcessExitNotificationManager {
 
     func sendTestNotification() async -> Bool {
         guard let center else { return false }
+        let language = AppLocalizer.currentLanguage()
 
         let content = UNMutableNotificationContent()
-        content.title = "GPUUsage test notification"
-        content.body = "프로세스 종료 알림이 정상적으로 표시됩니다."
+        content.title = language.text("GPUUsage test notification", "GPUUsage 테스트 알림")
+        content.body = language.text("Process exit and GPU idle alerts are working normally.", "프로세스 종료 알림과 GPU idle 알림이 정상적으로 표시됩니다.")
         content.sound = .default
         content.interruptionLevel = .active
 

@@ -56,6 +56,7 @@ open dist/GPUUsage-0.2.4-test-<commit>.app
 - `Refresh Interval`: polling 간격(초), `1...300` 범위에서 직접 입력 또는 stepper로 조정
 - `Notifications`: macOS 알림 권한 상태 확인, 권한 요청, 테스트 알림 전송, 현재 `프로세스 종료` / `GPU idle` watch 목록 관리, 최근 24시간 notification 설정 내역 확인
 - `Idle Duration` / `Memory Threshold`: GPU idle 알림 기준, 각각 `1...3600s`, `0...10240MB` 범위에서 직접 입력 또는 stepper로 조정
+- `Language`: `System`, `English`, `Korean` 중 선택. `System`은 macOS 언어를 따르고, 지원하지 않는 언어는 영어로 fallback
 - `Theme`: `System`, `Light`, `Dark` 중 선택
 - `Show Dock icon`: Dock과 App Switcher에 앱 아이콘 표시 여부
 - `Close popover on outside click`: 팝오버 바깥 영역 클릭 시 자동 닫힘 여부

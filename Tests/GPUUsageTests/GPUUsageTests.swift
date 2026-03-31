@@ -126,6 +126,7 @@ import Testing
     #expect(settings.sshTarget == "gpu-prod")
     #expect(settings.sshAuthenticationMode == .keyBased)
     #expect(settings.menuBarDisplayMode == .averageAndBusy)
+    #expect(settings.languagePreference == .system)
     #expect(settings.appearanceMode == .system)
     #expect(settings.showsDockIcon == false)
     #expect(settings.closesPopoverOnOutsideClick == true)
@@ -142,10 +143,10 @@ import Testing
         ]
     )
 
-    #expect(MenuBarDisplayMode.averageAndBusy.titleText(for: snapshot) == "GPU 50% · 2/2")
-    #expect(MenuBarDisplayMode.averageOnly.titleText(for: snapshot) == "GPU 50%")
-    #expect(MenuBarDisplayMode.busyOnly.titleText(for: snapshot) == "GPU 2/2")
-    #expect(MenuBarDisplayMode.iconOnly.titleText(for: snapshot).isEmpty)
+    #expect(MenuBarDisplayMode.averageAndBusy.titleText(for: snapshot, language: .english) == "GPU 50% · 2/2")
+    #expect(MenuBarDisplayMode.averageOnly.titleText(for: snapshot, language: .english) == "GPU 50%")
+    #expect(MenuBarDisplayMode.busyOnly.titleText(for: snapshot, language: .english) == "GPU 2/2")
+    #expect(MenuBarDisplayMode.iconOnly.titleText(for: snapshot, language: .english).isEmpty)
 }
 
 @Test func exitWatchDoesNotFireWhileProcessIsStillVisible() {

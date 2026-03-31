@@ -33,7 +33,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private let menu = NSMenu()
     private var cancellables = Set<AnyCancellable>()
     private var localOutsideClickMonitor: Any?
-    private lazy var settingsMenuItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+    private lazy var settingsMenuItem = NSMenuItem(title: "", action: #selector(openSettings), keyEquivalent: ",")
+    private lazy var quitMenuItem = NSMenuItem(title: "", action: #selector(quit), keyEquivalent: "q")
     private var settingsRelayHostingView: NSHostingView<SettingsActionRelayView>?
 
     init(store: GPUUsageStore, settingsOpenBridge: SettingsOpenBridge) {
@@ -85,15 +86,13 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
     private func configureMenu() {
         settingsMenuItem.target = self
-
-        let quitMenuItem = NSMenuItem(title: "Quit GPUUsage", action: #selector(quit), keyEquivalent: "q")
         quitMenuItem.target = self
-
         menu.items = [
             settingsMenuItem,
             .separator(),
             quitMenuItem,
         ]
+        updateMenuTitles()
     }
 
     private func configureStatusItem() {
@@ -126,6 +125,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
                 self?.updatePopoverSize()
                 self?.updatePopoverAppearance()
                 self?.updatePopoverAutoCloseBehavior()
+                self?.updateMenuTitles()
             }
             .store(in: &cancellables)
 
@@ -165,11 +165,17 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         button.title = store.menuBarTitle
         button.image = NSImage(
             systemSymbolName: store.menuBarSymbolName,
-            accessibilityDescription: "GPU Usage"
+            accessibilityDescription: store.settings.resolvedLanguage.text("GPU Usage", "GPU 사용량")
         )
         button.image?.isTemplate = true
         button.imagePosition = iconOnly ? .imageOnly : .imageLeft
         button.toolTip = store.menuBarToolTip
+    }
+
+    private func updateMenuTitles() {
+        let language = store.settings.resolvedLanguage
+        settingsMenuItem.title = language.text("Settings…", "설정…")
+        quitMenuItem.title = language.text("Quit GPUUsage", "GPUUsage 종료")
     }
 
     private func updatePopoverSize() {
