@@ -2,9 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_NAME="GPUUsage"
+APP_NAME="${APP_NAME:-GPUUsage}"
 PRODUCT_NAME="GPUUsage"
-VOLUME_NAME="GPUUsage"
+VOLUME_NAME="${VOLUME_NAME:-$APP_NAME}"
 
 VERSION="${VERSION:-0.2.4}"
 BUILD_NUMBER="${BUILD_NUMBER:-1}"

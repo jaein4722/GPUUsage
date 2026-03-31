@@ -30,8 +30,17 @@ swift run
 
 ```bash
 ./scripts/build_test_app.sh
-open dist/GPUUsage.app
+open dist/GPUUsage-0.2.4-test-<commit>.app
 ```
+
+반복 개발용으로는 아래 스크립트를 쓰면 `swift build` 또는 `swift test` 뒤에 테스트용 `.app`까지 같이 생성합니다.
+
+```bash
+./scripts/dev_build.sh
+./scripts/dev_test.sh
+```
+
+`swift build` / `swift test` 자체는 SwiftPM 차원에서 post-build hook을 붙일 수 없어서, 저장소에서는 위 dev 스크립트로 같은 흐름을 제공합니다.
 
 ## First-time setup
 
@@ -67,6 +76,7 @@ open dist/GPUUsage.app
 - 비밀번호 인증을 쓰는 경우 비밀번호는 `UserDefaults`가 아니라 macOS Keychain에 저장합니다.
 - 프로세스 종료 알림을 처음 사용할 때 macOS 알림 권한을 요청할 수 있습니다.
 - 프로세스 종료 알림은 번들 앱(`GPUUsage.app`)으로 실행할 때만 동작합니다. `swift run` 개발 실행에서는 비활성화됩니다.
+- 테스트용 앱은 `GPUUsage-<version>-test-<commit>.app` 형식으로 생성됩니다.
 - 서버에서 non-interactive shell의 PATH가 다르면 `Remote Command`에 `/usr/bin/nvidia-smi ...` 같은 전체 경로를 넣으세요.
 
 ## Package For Distribution
