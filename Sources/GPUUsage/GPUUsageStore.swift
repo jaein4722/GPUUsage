@@ -340,6 +340,11 @@ final class GPUUsageStore: ObservableObject {
             return
         }
 
+        guard notificationManager.isSupportedEnvironment else {
+            lastErrorMessage = "프로세스 종료 알림은 번들 앱(.app)으로 실행할 때만 사용할 수 있습니다."
+            return
+        }
+
         let isAuthorized = await notificationManager.requestAuthorizationIfNeeded()
         guard isAuthorized else {
             lastErrorMessage = "macOS 알림 권한이 없어 종료 알림을 등록하지 못했습니다."

@@ -59,6 +59,7 @@ swift run
 - 기본 `Key-based` 모드에서는 background polling 중 Keychain을 읽지 않습니다.
 - 비밀번호 인증을 쓰는 경우 비밀번호는 `UserDefaults`가 아니라 macOS Keychain에 저장합니다.
 - 프로세스 종료 알림을 처음 사용할 때 macOS 알림 권한을 요청할 수 있습니다.
+- 프로세스 종료 알림은 번들 앱(`GPUUsage.app`)으로 실행할 때만 동작합니다. `swift run` 개발 실행에서는 비활성화됩니다.
 - 서버에서 non-interactive shell의 PATH가 다르면 `Remote Command`에 `/usr/bin/nvidia-smi ...` 같은 전체 경로를 넣으세요.
 
 ## Package For Distribution
