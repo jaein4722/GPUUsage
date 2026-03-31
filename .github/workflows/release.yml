@@ -50,6 +50,14 @@ jobs:
         run: |
           echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           echo "BUILD_NUMBER=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          echo "RELEASE_NOTES_PATH=${RUNNER_TEMP}/release-notes.md" >> "$GITHUB_ENV"
+
+      - name: Extract release notes from changelog
+        run: |
+          python3 ./scripts/extract_release_notes.py \
+            --version "$VERSION" \
+            --changelog CHANGELOG.md \
+            --output "$RELEASE_NOTES_PATH"
 
       - name: Build DMG artifact
         run: |
@@ -77,10 +85,13 @@ jobs:
 
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file "$RELEASE_NOTES_PATH"
           else
             gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
               --title "$GITHUB_REF_NAME" \
-              --generate-notes
+              --notes-file "$RELEASE_NOTES_PATH"
           fi
 
       - name: Dispatch Homebrew tap update

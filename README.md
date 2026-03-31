@@ -125,6 +125,8 @@ git push origin v0.2.4
 
 5. GitHub Actions가 macOS runner에서 DMG를 빌드하고 해당 tag의 GitHub Release에 업로드합니다.
 
+릴리즈 본문은 `CHANGELOG.md`의 해당 버전 섹션을 그대로 사용합니다. 따라서 tag를 만들기 전에 `## 0.x.y - YYYY-MM-DD` 형식의 항목을 먼저 추가해야 합니다.
+
 기본 workflow는 ad-hoc 서명의 DMG를 올립니다. Gatekeeper 경고 없이 배포하려면 이후에 Apple Developer 인증서와 notarization secret을 CI에 추가해야 합니다.
 
 ## Homebrew Tap Sync
