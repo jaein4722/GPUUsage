@@ -1,5 +1,35 @@
 import Foundation
 
+enum MenuBarDisplayMode: String, Codable, CaseIterable, Equatable, Hashable, Identifiable, Sendable {
+    case averageAndBusy
+    case averageOnly
+    case busyOnly
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .averageAndBusy:
+            return "Average + Busy"
+        case .averageOnly:
+            return "Average Util"
+        case .busyOnly:
+            return "Busy Count"
+        }
+    }
+
+    func titleText(for snapshot: GPUSnapshot) -> String {
+        switch self {
+        case .averageAndBusy:
+            return "GPU \(snapshot.averageUtilization)% · \(snapshot.busyCount)/\(snapshot.gpus.count)"
+        case .averageOnly:
+            return "GPU \(snapshot.averageUtilization)%"
+        case .busyOnly:
+            return "GPU \(snapshot.busyCount)/\(snapshot.gpus.count)"
+        }
+    }
+}
+
 struct AppSettings: Codable, Equatable, Sendable {
     static let legacyDefaultRemoteCommand = "nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits"
     static let defaultRemoteCommand = "nvidia-smi --query-gpu=index,name,uuid,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits"
@@ -9,6 +39,44 @@ struct AppSettings: Codable, Equatable, Sendable {
     var sshIdentityFilePath: String = ""
     var pollIntervalSeconds: Int = 10
     var remoteCommand: String = Self.defaultRemoteCommand
+    var menuBarDisplayMode: MenuBarDisplayMode = .averageAndBusy
+
+    init(
+        sshTarget: String = "",
+        sshPort: String = "",
+        sshIdentityFilePath: String = "",
+        pollIntervalSeconds: Int = 10,
+        remoteCommand: String = Self.defaultRemoteCommand,
+        menuBarDisplayMode: MenuBarDisplayMode = .averageAndBusy
+    ) {
+        self.sshTarget = sshTarget
+        self.sshPort = sshPort
+        self.sshIdentityFilePath = sshIdentityFilePath
+        self.pollIntervalSeconds = pollIntervalSeconds
+        self.remoteCommand = remoteCommand
+        self.menuBarDisplayMode = menuBarDisplayMode
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case sshTarget
+        case sshPort
+        case sshIdentityFilePath
+        case pollIntervalSeconds
+        case remoteCommand
+        case menuBarDisplayMode
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            sshTarget: try container.decodeIfPresent(String.self, forKey: .sshTarget) ?? "",
+            sshPort: try container.decodeIfPresent(String.self, forKey: .sshPort) ?? "",
+            sshIdentityFilePath: try container.decodeIfPresent(String.self, forKey: .sshIdentityFilePath) ?? "",
+            pollIntervalSeconds: try container.decodeIfPresent(Int.self, forKey: .pollIntervalSeconds) ?? 10,
+            remoteCommand: try container.decodeIfPresent(String.self, forKey: .remoteCommand) ?? Self.defaultRemoteCommand,
+            menuBarDisplayMode: try container.decodeIfPresent(MenuBarDisplayMode.self, forKey: .menuBarDisplayMode) ?? .averageAndBusy
+        )
+    }
 
     var isConfigured: Bool {
         !sshTarget.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -105,6 +173,8 @@ struct GPUProcessReading: Identifiable, Equatable, Sendable {
     let pid: Int
     let processName: String
     let usedGPUMemoryMB: Int
+    let user: String?
+    let commandLine: String?
 
     var id: String {
         "\(gpuUUID):\(pid):\(processName)"
@@ -112,5 +182,31 @@ struct GPUProcessReading: Identifiable, Equatable, Sendable {
 
     var memorySummary: String {
         "\(usedGPUMemoryMB) MB"
+    }
+
+    var userSummary: String {
+        user ?? "--"
+    }
+
+    var commandSummary: String {
+        guard let commandLine, !commandLine.isEmpty else {
+            return processName
+        }
+
+        return commandLine
+    }
+
+    var displayProcessName: String {
+        if !processName.isEmpty {
+            return processName
+        }
+
+        return commandSummary
+    }
+
+    var showsSeparateCommandSummary: Bool {
+        let normalizedProcessName = processName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedCommand = commandSummary.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !normalizedCommand.isEmpty && normalizedProcessName != normalizedCommand
     }
 }

@@ -5,12 +5,16 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="GPUUsage"
 PRODUCT_NAME="GPUUsage"
 
-VERSION="${VERSION:-0.1.0}"
+VERSION="${VERSION:-0.2.0}"
 BUILD_NUMBER="${BUILD_NUMBER:-1}"
 BUNDLE_ID="${BUNDLE_ID:-com.leejaein.GPUUsage}"
 MIN_SYSTEM_VERSION="${MIN_SYSTEM_VERSION:-14.0}"
 CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
 NOTARIZE="${NOTARIZE:-0}"
+KEYCHAIN_PROFILE="${KEYCHAIN_PROFILE:-}"
+APPLE_ID="${APPLE_ID:-}"
+APPLE_TEAM_ID="${APPLE_TEAM_ID:-}"
+APPLE_APP_PASSWORD="${APPLE_APP_PASSWORD:-}"
 
 DIST_DIR="$ROOT_DIR/dist"
 APP_PATH="$DIST_DIR/${APP_NAME}.app"
@@ -76,6 +80,19 @@ fi
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 plutil -lint "$INFO_PLIST_PATH"
 
+echo "Assessing app with Gatekeeper..."
+if spctl --assess --type exec -vv "$APP_PATH"; then
+  echo "Gatekeeper assessment: accepted."
+else
+  if [[ "$CODESIGN_IDENTITY" == "-" ]]; then
+    echo "Gatekeeper assessment: rejected (expected for ad-hoc local builds)." >&2
+    echo "This build is fine for your own Mac, but other Macs will likely show 'Apple cannot check it for malicious software'." >&2
+    echo "For real distribution, sign with a Developer ID certificate and notarize the archive." >&2
+  else
+    echo "Gatekeeper assessment: rejected. This usually means the app is signed but not yet notarized." >&2
+  fi
+fi
+
 echo "Creating zip archive..."
 ditto -c -k --keepParent "$APP_PATH" "$ZIP_PATH"
 
@@ -85,19 +102,27 @@ if [[ "$NOTARIZE" == "1" ]]; then
     exit 1
   fi
 
-  : "${APPLE_ID:?Set APPLE_ID to notarize.}"
-  : "${APPLE_TEAM_ID:?Set APPLE_TEAM_ID to notarize.}"
-  : "${APPLE_APP_PASSWORD:?Set APPLE_APP_PASSWORD to notarize.}"
-
   echo "Submitting zip for notarization..."
-  xcrun notarytool submit "$ZIP_PATH" \
-    --apple-id "$APPLE_ID" \
-    --team-id "$APPLE_TEAM_ID" \
-    --password "$APPLE_APP_PASSWORD" \
-    --wait
+  if [[ -n "$KEYCHAIN_PROFILE" ]]; then
+    xcrun notarytool submit "$ZIP_PATH" --keychain-profile "$KEYCHAIN_PROFILE" --wait
+  else
+    : "${APPLE_ID:?Set APPLE_ID to notarize.}"
+    : "${APPLE_TEAM_ID:?Set APPLE_TEAM_ID to notarize.}"
+    : "${APPLE_APP_PASSWORD:?Set APPLE_APP_PASSWORD to notarize.}"
+
+    xcrun notarytool submit "$ZIP_PATH" \
+      --apple-id "$APPLE_ID" \
+      --team-id "$APPLE_TEAM_ID" \
+      --password "$APPLE_APP_PASSWORD" \
+      --wait
+  fi
 
   echo "Stapling ticket..."
   xcrun stapler staple "$APP_PATH"
+  xcrun stapler validate "$APP_PATH"
+
+  echo "Re-assessing notarized app with Gatekeeper..."
+  spctl --assess --type exec -vv "$APP_PATH"
 
   echo "Repacking stapled app..."
   rm -f "$ZIP_PATH"

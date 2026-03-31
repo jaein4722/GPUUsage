@@ -3,12 +3,15 @@ import Foundation
 struct SSHMetricsFetcher: Sendable {
     static let processDetailsCommand = "nvidia-smi --query-compute-apps=gpu_uuid,pid,process_name,used_gpu_memory --format=csv,noheader,nounits"
     private static let processSectionSeparator = "__GPUUSAGE_PROCESS_SECTION__"
+    private static let psSectionSeparator = "__GPUUSAGE_PS_SECTION__"
 
     enum FetchError: LocalizedError, Equatable {
         case commandFailed(Int32, String)
         case emptyResponse
         case invalidOutput(String)
         case invalidProcessOutput(String)
+        case invalidPSOutput(String)
+        case askPassScriptCreationFailed
         case missingTarget
 
         var errorDescription: String? {
@@ -21,19 +24,23 @@ struct SSHMetricsFetcher: Sendable {
                 return "nvidia-smi output could not be parsed: \(line)"
             case .invalidProcessOutput(let line):
                 return "nvidia-smi process output could not be parsed: \(line)"
+            case .invalidPSOutput(let line):
+                return "ps output could not be parsed: \(line)"
+            case .askPassScriptCreationFailed:
+                return "SSH 비밀번호 인증을 위한 임시 스크립트를 만들지 못했습니다."
             case .missingTarget:
                 return "SSH target is missing."
             }
         }
     }
 
-    func fetch(settings: AppSettings) async throws -> GPUSnapshot {
+    func fetch(settings: AppSettings, password: String? = nil) async throws -> GPUSnapshot {
         let normalized = settings.normalized()
         guard normalized.isConfigured else {
             throw FetchError.missingTarget
         }
 
-        let output = try await runSSHCommand(settings: normalized)
+        let output = try await runSSHCommand(settings: normalized, password: password)
         let gpus = try Self.parseSnapshot(output)
         return GPUSnapshot(takenAt: Date(), gpus: gpus)
     }
@@ -43,25 +50,32 @@ struct SSHMetricsFetcher: Sendable {
     }
 
     static func parseSnapshot(_ output: String) throws -> [GPUReading] {
-        let gpuSection: String
-        let processSection: String
-
-        if let separatorRange = output.range(of: processSectionSeparator) {
-            gpuSection = String(output[..<separatorRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
-            processSection = String(output[separatorRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
-        } else {
-            gpuSection = output
-            processSection = ""
-        }
+        let gpuSection = section(named: nil, from: output)
+        let processSection = section(named: processSectionSeparator, from: output)
+        let psSection = section(named: psSectionSeparator, from: output)
 
         let gpus = try parseGPUSection(gpuSection)
         let processes = try parseProcessSection(processSection)
+        let processDetails = try parsePSSection(psSection)
 
-        guard !processes.isEmpty else {
+        let processDetailsByPID = Dictionary(uniqueKeysWithValues: processDetails.map { ($0.pid, $0) })
+        let enrichedProcesses = processes.map { process in
+            let details = processDetailsByPID[process.pid]
+            return GPUProcessReading(
+                gpuUUID: process.gpuUUID,
+                pid: process.pid,
+                processName: process.processName,
+                usedGPUMemoryMB: process.usedGPUMemoryMB,
+                user: details?.user,
+                commandLine: details?.commandLine
+            )
+        }
+
+        guard !enrichedProcesses.isEmpty else {
             return gpus
         }
 
-        let processesByGPU = Dictionary(grouping: processes, by: \.gpuUUID)
+        let processesByGPU = Dictionary(grouping: enrichedProcesses, by: \.gpuUUID)
         return gpus.map { gpu in
             GPUReading(
                 index: gpu.index,
@@ -101,16 +115,60 @@ struct SSHMetricsFetcher: Sendable {
         return try lines.map(parseProcessLine(_:))
     }
 
-    private func runSSHCommand(settings: AppSettings) async throws -> String {
+    private static func parsePSSection(_ output: String) throws -> [ProcessDetails] {
+        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return []
+        }
+
+        let lines = trimmed
+            .split(whereSeparator: \.isNewline)
+            .map { String($0) }
+
+        return try lines.map(parsePSLine(_:))
+    }
+
+    private func runSSHCommand(settings: AppSettings, password: String?) async throws -> String {
         try await Task.detached(priority: .utility) {
+            let trimmedPassword = password?.trimmingCharacters(in: .newlines)
+            let askPassScriptURL: URL?
+
+            if let trimmedPassword, !trimmedPassword.isEmpty {
+                askPassScriptURL = try Self.createAskPassScript()
+            } else {
+                askPassScriptURL = nil
+            }
+
+            defer {
+                if let askPassScriptURL {
+                    try? FileManager.default.removeItem(at: askPassScriptURL)
+                }
+            }
+
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
-            process.arguments = Self.buildSSHArguments(settings: settings)
+            process.arguments = Self.buildSSHArguments(
+                settings: settings,
+                prefersPasswordAuth: !(trimmedPassword?.isEmpty ?? true)
+            )
 
             let stdoutPipe = Pipe()
             let stderrPipe = Pipe()
             process.standardOutput = stdoutPipe
             process.standardError = stderrPipe
+            process.standardInput = FileHandle.nullDevice
+
+            if let askPassScriptURL, let trimmedPassword {
+                process.environment = ProcessInfo.processInfo.environment.merging(
+                    [
+                        "SSH_ASKPASS": askPassScriptURL.path,
+                        "SSH_ASKPASS_REQUIRE": "force",
+                        "GPUUSAGE_SSH_PASSWORD": trimmedPassword,
+                        "DISPLAY": "gpuusage:0",
+                    ],
+                    uniquingKeysWith: { _, newValue in newValue }
+                )
+            }
 
             try process.run()
             process.waitUntilExit()
@@ -132,11 +190,22 @@ struct SSHMetricsFetcher: Sendable {
         }.value
     }
 
-    private static func buildSSHArguments(settings: AppSettings) -> [String] {
+    private static func buildSSHArguments(settings: AppSettings, prefersPasswordAuth: Bool) -> [String] {
         var arguments = [
-            "-o", "BatchMode=yes",
             "-o", "ConnectTimeout=5",
         ]
+
+        if prefersPasswordAuth {
+            arguments.append(contentsOf: [
+                "-o", "BatchMode=no",
+                "-o", "NumberOfPasswordPrompts=1",
+                "-o", "PreferredAuthentications=password,keyboard-interactive,publickey",
+            ])
+        } else {
+            arguments.append(contentsOf: [
+                "-o", "BatchMode=yes",
+            ])
+        }
 
         if !settings.sshIdentityFilePath.isEmpty {
             arguments.append(contentsOf: ["-i", settings.sshIdentityFilePath])
@@ -207,19 +276,96 @@ struct SSHMetricsFetcher: Sendable {
             gpuUUID: columns[0],
             pid: pid,
             processName: columns[2],
-            usedGPUMemoryMB: Int(columns[3]) ?? 0
+            usedGPUMemoryMB: Int(columns[3]) ?? 0,
+            user: nil,
+            commandLine: nil
         )
     }
 
     private static func buildCombinedRemoteCommand(summaryCommand: String) -> String {
-        [
-            summaryCommand,
-            "printf '\\n\(processSectionSeparator)\\n'",
-            "\(processDetailsCommand) 2>/dev/null || true",
-        ].joined(separator: "; ")
+        """
+        \(summaryCommand)
+        printf '\\n\(processSectionSeparator)\\n'
+        process_output="$(\(processDetailsCommand) 2>/dev/null || true)"
+        printf '%s\\n' "$process_output"
+        printf '\\n\(psSectionSeparator)\\n'
+        if [ -n "$process_output" ]; then
+          pids="$(printf '%s\\n' "$process_output" | awk -F',' '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); if ($2 != "") print $2 }' | sort -u | paste -sd, -)"
+          if [ -n "$pids" ]; then
+            ps -o pid= -o user= -o args= -p "$pids" 2>/dev/null || true
+          fi
+        fi
+        """
     }
 
     private static func shellQuoted(_ string: String) -> String {
         "'\(string.replacingOccurrences(of: "'", with: "'\\''"))'"
     }
+
+    private static func createAskPassScript() throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("gpuusage-askpass-\(UUID().uuidString).sh")
+        let contents = """
+        #!/bin/sh
+        printf '%s' "$GPUUSAGE_SSH_PASSWORD"
+        """
+
+        do {
+            try contents.write(to: url, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
+            return url
+        } catch {
+            throw FetchError.askPassScriptCreationFailed
+        }
+    }
+
+    private static func section(named name: String?, from output: String) -> String {
+        let separators = [processSectionSeparator, psSectionSeparator]
+
+        if let name {
+            guard let startRange = output.range(of: name) else {
+                return ""
+            }
+
+            let contentStart = startRange.upperBound
+            let nextRange = separators
+                .filter { $0 != name }
+                .compactMap { separator -> Range<String.Index>? in
+                    output.range(of: separator, range: contentStart..<output.endIndex)
+                }
+                .min { $0.lowerBound < $1.lowerBound }
+
+            let sectionRange = contentStart..<(nextRange?.lowerBound ?? output.endIndex)
+            return String(output[sectionRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        let firstSeparatorRange = separators
+            .compactMap { separator in output.range(of: separator) }
+            .min { $0.lowerBound < $1.lowerBound }
+
+        let endIndex = firstSeparatorRange?.lowerBound ?? output.endIndex
+        return String(output[..<endIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func parsePSLine(_ line: String) throws -> ProcessDetails {
+        let columns = line
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(maxSplits: 2, omittingEmptySubsequences: true, whereSeparator: \.isWhitespace)
+
+        guard columns.count >= 2, let pid = Int(columns[0]) else {
+            throw FetchError.invalidPSOutput(line)
+        }
+
+        let commandLine = columns.count == 3 ? String(columns[2]) : nil
+        return ProcessDetails(
+            pid: pid,
+            user: String(columns[1]),
+            commandLine: commandLine
+        )
+    }
+}
+
+private struct ProcessDetails: Equatable, Sendable {
+    let pid: Int
+    let user: String
+    let commandLine: String?
 }

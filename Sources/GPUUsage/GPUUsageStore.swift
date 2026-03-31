@@ -10,6 +10,7 @@ final class GPUUsageStore: ObservableObject {
 
     private let fetcher: SSHMetricsFetcher
     private let userDefaults: UserDefaults
+    private let passwordStore = SSHPasswordStore()
     private let settingsKey = "gpu_usage.settings"
     private var pollingTask: Task<Void, Never>?
 
@@ -30,7 +31,7 @@ final class GPUUsageStore: ObservableObject {
         guard settings.isConfigured else { return "GPU --" }
 
         if let snapshot {
-            return "GPU \(snapshot.averageUtilization)% · \(snapshot.busyCount)/\(snapshot.gpus.count)"
+            return settings.menuBarDisplayMode.titleText(for: snapshot)
         }
 
         if isRefreshing {
@@ -59,13 +60,42 @@ final class GPUUsageStore: ObservableObject {
         return formatter.localizedString(for: snapshot.takenAt, relativeTo: Date())
     }
 
-    func applySettings(_ newSettings: AppSettings) {
+    func applySettings(_ newSettings: AppSettings, password: String = "") {
         let normalized = newSettings.normalized()
-        guard normalized != settings else { return }
+        let existingPassword = (try? passwordStore.loadPassword()) ?? ""
+        let trimmedPassword = password.trimmingCharacters(in: .newlines)
+        guard normalized != settings || trimmedPassword != existingPassword else { return }
+
+        do {
+            try passwordStore.savePassword(trimmedPassword)
+        } catch {
+            lastErrorMessage = error.localizedDescription
+            return
+        }
 
         settings = normalized
         persistSettings()
         configurePolling(resetState: true)
+    }
+
+    func loadSavedPassword() -> String {
+        (try? passwordStore.loadPassword()) ?? ""
+    }
+
+    func resetConfiguration() {
+        pollingTask?.cancel()
+
+        do {
+            try passwordStore.deletePassword()
+        } catch {
+            lastErrorMessage = error.localizedDescription
+        }
+
+        settings = AppSettings()
+        snapshot = nil
+        userDefaults.removeObject(forKey: settingsKey)
+        lastErrorMessage = "SSH target를 입력하면 polling을 시작합니다."
+        configurePolling(resetState: false)
     }
 
     func refreshNow() {
@@ -116,7 +146,11 @@ final class GPUUsageStore: ObservableObject {
         }
 
         do {
-            let snapshot = try await fetcher.fetch(settings: currentSettings)
+            let password = loadSavedPassword()
+            let snapshot = try await fetcher.fetch(
+                settings: currentSettings,
+                password: password.isEmpty ? nil : password
+            )
             self.snapshot = snapshot
             lastErrorMessage = nil
         } catch is CancellationError {

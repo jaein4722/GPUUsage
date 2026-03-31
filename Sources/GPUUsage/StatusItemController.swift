@@ -1,0 +1,125 @@
+import AppKit
+import Combine
+import SwiftUI
+
+@MainActor
+final class StatusItemController: NSObject {
+    var showSettingsAction: (() -> Void)?
+
+    private let store: GPUUsageStore
+    private let statusItem: NSStatusItem
+    private let popover = NSPopover()
+    private let menu = NSMenu()
+    private var cancellables = Set<AnyCancellable>()
+    private lazy var settingsMenuItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+
+    init(store: GPUUsageStore) {
+        self.store = store
+        self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        super.init()
+
+        configurePopover()
+        configureMenu()
+        configureStatusItem()
+        bindStore()
+        updateStatusItemAppearance()
+        updatePopoverSize()
+    }
+
+    @objc private func handleStatusItemClick(_ sender: NSStatusBarButton) {
+        guard let event = NSApp.currentEvent else {
+            togglePopover(sender)
+            return
+        }
+
+        switch event.type {
+        case .rightMouseUp:
+            showContextMenu()
+        case .leftMouseUp:
+            togglePopover(sender)
+        default:
+            break
+        }
+    }
+
+    @objc private func openSettings() {
+        popover.performClose(nil)
+        showSettingsAction?()
+    }
+
+    @objc private func quit() {
+        NSApplication.shared.terminate(nil)
+    }
+
+    private func configurePopover() {
+        popover.behavior = .transient
+        popover.animates = true
+        popover.contentViewController = NSHostingController(rootView: StatusMenuView(store: store))
+    }
+
+    private func configureMenu() {
+        settingsMenuItem.target = self
+
+        let quitMenuItem = NSMenuItem(title: "Quit GPUUsage", action: #selector(quit), keyEquivalent: "q")
+        quitMenuItem.target = self
+
+        menu.items = [
+            settingsMenuItem,
+            .separator(),
+            quitMenuItem,
+        ]
+    }
+
+    private func configureStatusItem() {
+        guard let button = statusItem.button else { return }
+
+        button.target = self
+        button.action = #selector(handleStatusItemClick(_:))
+        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        button.imagePosition = .imageLeft
+    }
+
+    private func bindStore() {
+        store.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateStatusItemAppearance()
+                self?.updatePopoverSize()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func togglePopover(_ sender: NSStatusBarButton) {
+        if popover.isShown {
+            popover.performClose(sender)
+        } else {
+            updatePopoverSize()
+            popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
+            popover.contentViewController?.view.window?.becomeKey()
+        }
+    }
+
+    private func showContextMenu() {
+        popover.performClose(nil)
+        statusItem.menu = menu
+        statusItem.button?.performClick(nil)
+        statusItem.menu = nil
+    }
+
+    private func updateStatusItemAppearance() {
+        guard let button = statusItem.button else { return }
+
+        button.title = store.menuBarTitle
+        button.image = NSImage(
+            systemSymbolName: store.menuBarSymbolName,
+            accessibilityDescription: "GPU Usage"
+        )
+        button.image?.isTemplate = true
+    }
+
+    private func updatePopoverSize() {
+        let gpuCount = max(store.snapshot?.gpus.count ?? 0, 1)
+        let height = min(CGFloat(820), max(260, CGFloat(110 + gpuCount * 58)))
+        popover.contentSize = NSSize(width: 500, height: height)
+    }
+}
