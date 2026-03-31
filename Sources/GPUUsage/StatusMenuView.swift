@@ -138,7 +138,7 @@ private struct GPUListRow: View {
 
     private var cardBackgroundColor: Color {
         if gpu.isIdle {
-            return Color(nsColor: .controlBackgroundColor).opacity(0.76)
+            return Color(nsColor: .underPageBackgroundColor).opacity(0.88)
         }
 
         return Color(nsColor: .controlBackgroundColor)
@@ -149,7 +149,7 @@ private struct GPUListRow: View {
             return .orange.opacity(0.42)
         }
 
-        return gpu.isIdle ? Color.primary.opacity(0.08) : Color.primary.opacity(0.05)
+        return gpu.isIdle ? Color.primary.opacity(0.09) : Color.primary.opacity(0.05)
     }
 
     var body: some View {
