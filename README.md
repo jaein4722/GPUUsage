@@ -34,6 +34,7 @@ swift run
 - `Identity File`: 선택 사항, 필요하면 `~/.ssh/id_ed25519`
 - `SSH Password`: `Password-based`일 때만 사용
 - `Refresh Interval`: polling 간격(초)
+- `Theme`: `System`, `Light`, `Dark` 중 선택
 - `Menu Bar Summary`: 메뉴바에 `평균 사용률`, `busy GPU 수`, 둘 다, 또는 `icon only` 표시
 - `Remote Command`: 기본값은 `nvidia-smi` 쿼리, 필요하면 절대 경로로 변경
 
@@ -63,12 +64,12 @@ swift run
 기본 실행 결과:
 
 - `dist/GPUUsage.app`
-- `dist/GPUUsage-0.2.2.dmg`
+- `dist/GPUUsage-0.2.3.dmg`
 - 저장소 루트에 `icon.png`가 있으면 자동으로 `.icns`로 변환되어 앱 아이콘으로 포함
 
 옵션 환경 변수:
 
-- `VERSION=0.2.2`
+- `VERSION=0.2.3`
 - `BUILD_NUMBER=1`
 - `BUNDLE_ID=com.example.GPUUsage`
 - `CODESIGN_IDENTITY="Developer ID Application: ..."`
@@ -103,7 +104,7 @@ KEYCHAIN_PROFILE="GPUUsageNotary" \
 ./scripts/package_app.sh
 ```
 
-4. 스크립트가 끝난 뒤 `dist/GPUUsage-0.2.2.dmg`를 배포합니다.
+4. 스크립트가 끝난 뒤 `dist/GPUUsage-0.2.3.dmg`를 배포합니다.
 
 ## GitHub Releases
 
@@ -111,11 +112,11 @@ KEYCHAIN_PROFILE="GPUUsageNotary" \
 
 1. `master`에 릴리즈할 변경을 반영합니다.
 2. `swift test`를 확인합니다.
-3. `v0.2.2` 같은 tag를 생성하고 push합니다.
+3. `v0.2.3` 같은 tag를 생성하고 push합니다.
 
 ```bash
-git tag v0.2.2
-git push origin v0.2.2
+git tag v0.2.3
+git push origin v0.2.3
 ```
 
 4. GitHub Actions가 macOS runner에서 DMG를 빌드하고 해당 tag의 GitHub Release에 업로드합니다.

@@ -23,7 +23,7 @@ struct SettingsView: View {
         case let (shortVersion?, _):
             return shortVersion
         default:
-            return "0.2.2"
+            return "0.2.3"
         }
     }
 
@@ -169,6 +169,20 @@ struct SettingsView: View {
     private var appearancePane: some View {
         Form {
             Section {
+                LabeledContent("Theme") {
+                    Picker("Theme", selection: $draft.appearanceMode) {
+                        ForEach(AppAppearanceMode.allCases) { mode in
+                            Text(mode.title).tag(mode)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 180)
+                }
+
+                Text(draft.appearanceMode.detailText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 LabeledContent("Display") {
                     Picker("Display", selection: $draft.menuBarDisplayMode) {
                         ForEach(MenuBarDisplayMode.allCases) { mode in
@@ -240,6 +254,11 @@ struct SettingsView: View {
 
                 LabeledContent("Menu Bar") {
                     Text(store.settings.menuBarDisplayMode.title)
+                        .foregroundStyle(.secondary)
+                }
+
+                LabeledContent("Theme") {
+                    Text(store.settings.appearanceMode.title)
                         .foregroundStyle(.secondary)
                 }
 

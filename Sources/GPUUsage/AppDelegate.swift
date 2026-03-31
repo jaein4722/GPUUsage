@@ -1,13 +1,17 @@
 import AppKit
+import Combine
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let store = GPUUsageStore()
     private let settingsOpenBridge = SettingsOpenBridge()
     private var statusItemController: StatusItemController?
+    private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        bindAppearance()
+        applyAppearance(for: store.settings.appearanceMode)
 
         let statusItemController = StatusItemController(store: store, settingsOpenBridge: settingsOpenBridge)
         statusItemController.showSettingsAction = { [weak self] in
@@ -19,6 +23,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                 self?.showSettingsWindow()
             }
+        }
+    }
+
+    private func bindAppearance() {
+        store.$settings
+            .map(\.appearanceMode)
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] mode in
+                self?.applyAppearance(for: mode)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func applyAppearance(for mode: AppAppearanceMode) {
+        switch mode {
+        case .system:
+            NSApp.appearance = nil
+        case .light:
+            NSApp.appearance = NSAppearance(named: .aqua)
+        case .dark:
+            NSApp.appearance = NSAppearance(named: .darkAqua)
         }
     }
 

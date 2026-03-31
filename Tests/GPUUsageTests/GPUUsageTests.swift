@@ -107,6 +107,7 @@ import Testing
     #expect(settings.sshTarget == "gpu-prod")
     #expect(settings.sshAuthenticationMode == .keyBased)
     #expect(settings.menuBarDisplayMode == .averageAndBusy)
+    #expect(settings.appearanceMode == .system)
 }
 
 @Test func menuBarDisplayModesBuildExpectedSummary() {

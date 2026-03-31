@@ -48,6 +48,36 @@ enum MenuBarDisplayMode: String, Codable, CaseIterable, Equatable, Hashable, Ide
     }
 }
 
+enum AppAppearanceMode: String, Codable, CaseIterable, Equatable, Hashable, Identifiable, Sendable {
+    case system
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system:
+            return "System"
+        case .light:
+            return "Light"
+        case .dark:
+            return "Dark"
+        }
+    }
+
+    var detailText: String {
+        switch self {
+        case .system:
+            return "macOS 시스템 설정을 그대로 따릅니다."
+        case .light:
+            return "GPUUsage를 항상 라이트 모드로 표시합니다."
+        case .dark:
+            return "GPUUsage를 항상 다크 모드로 표시합니다."
+        }
+    }
+}
+
 enum SSHAuthenticationMode: String, Codable, CaseIterable, Equatable, Hashable, Identifiable, Sendable {
     case keyBased
     case passwordBased
@@ -84,6 +114,7 @@ struct AppSettings: Codable, Equatable, Sendable {
     var pollIntervalSeconds: Int = 10
     var remoteCommand: String = Self.defaultRemoteCommand
     var menuBarDisplayMode: MenuBarDisplayMode = .averageAndBusy
+    var appearanceMode: AppAppearanceMode = .system
 
     init(
         sshTarget: String = "",
@@ -92,7 +123,8 @@ struct AppSettings: Codable, Equatable, Sendable {
         sshAuthenticationMode: SSHAuthenticationMode = .keyBased,
         pollIntervalSeconds: Int = 10,
         remoteCommand: String = Self.defaultRemoteCommand,
-        menuBarDisplayMode: MenuBarDisplayMode = .averageAndBusy
+        menuBarDisplayMode: MenuBarDisplayMode = .averageAndBusy,
+        appearanceMode: AppAppearanceMode = .system
     ) {
         self.sshTarget = sshTarget
         self.sshPort = sshPort
@@ -101,6 +133,7 @@ struct AppSettings: Codable, Equatable, Sendable {
         self.pollIntervalSeconds = pollIntervalSeconds
         self.remoteCommand = remoteCommand
         self.menuBarDisplayMode = menuBarDisplayMode
+        self.appearanceMode = appearanceMode
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -111,6 +144,7 @@ struct AppSettings: Codable, Equatable, Sendable {
         case pollIntervalSeconds
         case remoteCommand
         case menuBarDisplayMode
+        case appearanceMode
     }
 
     init(from decoder: Decoder) throws {
@@ -122,7 +156,8 @@ struct AppSettings: Codable, Equatable, Sendable {
             sshAuthenticationMode: try container.decodeIfPresent(SSHAuthenticationMode.self, forKey: .sshAuthenticationMode) ?? .keyBased,
             pollIntervalSeconds: try container.decodeIfPresent(Int.self, forKey: .pollIntervalSeconds) ?? 10,
             remoteCommand: try container.decodeIfPresent(String.self, forKey: .remoteCommand) ?? Self.defaultRemoteCommand,
-            menuBarDisplayMode: try container.decodeIfPresent(MenuBarDisplayMode.self, forKey: .menuBarDisplayMode) ?? .averageAndBusy
+            menuBarDisplayMode: try container.decodeIfPresent(MenuBarDisplayMode.self, forKey: .menuBarDisplayMode) ?? .averageAndBusy,
+            appearanceMode: try container.decodeIfPresent(AppAppearanceMode.self, forKey: .appearanceMode) ?? .system
         )
     }
 
