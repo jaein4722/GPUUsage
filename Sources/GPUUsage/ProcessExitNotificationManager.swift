@@ -28,20 +28,26 @@ struct ProcessExitNotificationManager {
         }
     }
 
-    func sendExitNotification(for watch: ProcessExitWatch) async {
-        guard let center else { return }
+    func sendExitNotification(for watch: ProcessExitWatch) async -> Bool {
+        guard let center else { return false }
 
         let content = UNMutableNotificationContent()
         content.title = "\(watch.displayProcessName) finished"
         content.body = watch.subtitle
         content.sound = .default
+        content.interruptionLevel = .active
 
         let request = UNNotificationRequest(
             identifier: "gpuusage.process-exit.\(watch.id)",
             content: content,
-            trigger: nil
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         )
 
-        try? await center.add(request)
+        do {
+            try await center.add(request)
+            return true
+        } catch {
+            return false
+        }
     }
 }

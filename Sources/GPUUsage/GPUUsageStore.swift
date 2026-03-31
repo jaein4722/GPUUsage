@@ -340,7 +340,7 @@ final class GPUUsageStore: ObservableObject {
         if let existingIndex = watchedProcesses.firstIndex(where: { $0.matches(process) && $0.connectionFingerprint == settings.connectionFingerprint }) {
             watchedProcesses.remove(at: existingIndex)
             persistWatchedProcesses()
-            noticeMessage = nil
+            noticeMessage = "프로세스 종료 알림을 해제했습니다."
             return
         }
 
@@ -391,13 +391,26 @@ final class GPUUsageStore: ObservableObject {
 
             guard !exitedWatches.isEmpty else { return }
 
+            var notifiedProcesses = [String]()
+
             for watch in exitedWatches {
-                await notificationManager.sendExitNotification(for: watch)
+                let didSchedule = await notificationManager.sendExitNotification(for: watch)
+                if didSchedule {
+                    notifiedProcesses.append(watch.displayProcessName)
+                }
             }
 
             let exitedWatchIDs = Set(exitedWatches.map(\.id))
             watchedProcesses.removeAll { exitedWatchIDs.contains($0.id) }
             persistWatchedProcesses()
+
+            if notifiedProcesses.isEmpty {
+                noticeMessage = "프로세스 종료는 감지했지만 macOS 알림 예약에는 실패했습니다."
+            } else if notifiedProcesses.count == 1 {
+                noticeMessage = "\(notifiedProcesses[0]) 종료 알림을 보냈습니다."
+            } else {
+                noticeMessage = "\(notifiedProcesses.count)개 프로세스 종료 알림을 보냈습니다."
+            }
         } catch {
             return
         }
