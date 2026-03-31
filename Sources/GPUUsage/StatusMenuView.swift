@@ -140,7 +140,7 @@ private struct GPUListRow: View {
         if gpu.isIdle {
             let base = NSColor.controlBackgroundColor
             let tint = NSColor.separatorColor
-            let mixed = base.blended(withFraction: 0.10, of: tint) ?? base
+            let mixed = base.blended(withFraction: 0.24, of: tint) ?? base
             return Color(nsColor: mixed)
         }
 
@@ -152,7 +152,7 @@ private struct GPUListRow: View {
             return .orange.opacity(0.42)
         }
 
-        return gpu.isIdle ? Color.primary.opacity(0.09) : Color.primary.opacity(0.05)
+        return gpu.isIdle ? Color.primary.opacity(0.11) : Color.primary.opacity(0.05)
     }
 
     var body: some View {
