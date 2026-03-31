@@ -10,19 +10,41 @@ permissions:
 
 jobs:
   build-and-release:
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Swift 6.3
-        uses: swift-actions/setup-swift@v2
-        with:
-          swift-version: "6.3"
+      - name: Select Xcode 26
+        shell: bash
+        run: |
+          shopt -s nullglob
+          candidates=(/Applications/Xcode_26*.app)
 
-      - name: Show Swift version
-        run: swift --version
+          if [ ${#candidates[@]} -gt 0 ]; then
+            IFS=$'\n' sorted=($(printf '%s\n' "${candidates[@]}" | sort -V))
+            selected="${sorted[${#sorted[@]}-1]}"
+            echo "DEVELOPER_DIR=$selected/Contents/Developer" >> "$GITHUB_ENV"
+            echo "Selected Xcode: $selected"
+            exit 0
+          fi
+
+          current_version="$(xcodebuild -version | awk 'NR==1 {print $2}')"
+          if [[ "$current_version" == 26.* ]]; then
+            echo "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer" >> "$GITHUB_ENV"
+            echo "Using default Xcode.app ($current_version)"
+            exit 0
+          fi
+
+          echo "No Xcode 26 installation found on runner." >&2
+          ls -1 /Applications | grep '^Xcode' || true
+          exit 1
+
+      - name: Show toolchain versions
+        run: |
+          xcodebuild -version
+          swift --version
 
       - name: Derive version from tag
         run: |
