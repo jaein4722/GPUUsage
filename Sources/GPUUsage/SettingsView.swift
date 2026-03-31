@@ -215,22 +215,89 @@ struct SettingsView: View {
             } header: {
                 Text("Permission")
             } footer: {
-                Text("이 권한은 프로세스별 종료 알림 기능에만 사용됩니다. 권한 허용 후에도 실제 알림은 각 프로세스 행의 `Notify` 버튼으로 개별 설정합니다.")
+                Text("이 권한은 프로세스 종료 알림과 GPU idle 알림에 함께 사용됩니다.")
             }
 
             Section {
-                if store.watchedProcesses.isEmpty {
-                    Text("현재 설정된 프로세스 종료 알림이 없습니다.")
+                LabeledContent("Idle Duration") {
+                    HStack(spacing: 8) {
+                        Stepper("", value: $draft.idleNotificationSeconds, in: 30...86_400, step: 30)
+                            .labelsHidden()
+                        Text("\(draft.idleNotificationSeconds) seconds")
+                            .monospacedDigit()
+                    }
+                    .fixedSize()
+                }
+
+                LabeledContent("Memory Threshold") {
+                    HStack(spacing: 8) {
+                        Stepper("", value: $draft.idleMemoryThresholdMB, in: 0...4_096, step: 10)
+                            .labelsHidden()
+                        Text("\(draft.idleMemoryThresholdMB) MB")
+                            .monospacedDigit()
+                    }
+                    .fixedSize()
+                }
+            } header: {
+                Text("GPU Idle Alert")
+            } footer: {
+                Text("별표된 GPU는 `util = 0%` 이고 memory가 임계치 이하인 상태가 지정 시간 이상 유지되면 알림을 보냅니다.")
+            }
+
+            Section {
+                if store.watchedIdleGPUs.isEmpty && store.watchedProcesses.isEmpty {
+                    Text("현재 설정된 notification watch가 없습니다.")
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(store.watchedProcesses) { watch in
-                        NotificationWatchRow(watch: watch)
+                    if !store.watchedIdleGPUs.isEmpty {
+                        Text("GPU Idle Alerts")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+
+                        ForEach(store.watchedIdleGPUs) { watch in
+                            NotificationWatchRow(
+                                badgeTitle: "GPU Idle",
+                                badgeSystemImage: "star.fill",
+                                badgeTint: .yellow,
+                                title: watch.title,
+                                primaryMetadata: watch.subtitle,
+                                secondaryMetadata: "Idle \(draft.idleNotificationSeconds)s · <=\(draft.idleMemoryThresholdMB)MB",
+                                removeButtonTitle: "Disable",
+                                removeAction: {
+                                    store.removeIdleWatch(watch)
+                                }
+                            )
+                        }
+                    }
+
+                    if !store.watchedIdleGPUs.isEmpty && !store.watchedProcesses.isEmpty {
+                        Divider()
+                            .padding(.vertical, 2)
+                    }
+
+                    if !store.watchedProcesses.isEmpty {
+                        Text("Process Exit Alerts")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+
+                        ForEach(store.watchedProcesses) { watch in
+                            NotificationWatchRow(
+                                badgeTitle: "Process Exit",
+                                badgeSystemImage: "bell.fill",
+                                badgeTint: .orange,
+                                title: watch.displayProcessName,
+                                primaryMetadata: processWatchPrimaryMetadataText(for: watch),
+                                secondaryMetadata: watch.connectionLabel,
+                                removeButtonTitle: "Disable",
+                                removeAction: {
+                                    store.removeProcessWatch(watch)
+                                }
+                            )
+                        }
                     }
                 }
             } header: {
                 Text("Active Watches")
-            } footer: {
-                Text("현재 종료 알림을 감시 중인 프로세스입니다.")
             }
 
             Section {
@@ -453,35 +520,40 @@ struct SettingsView: View {
 }
 
 private struct NotificationWatchRow: View {
-    let watch: ProcessExitWatch
+    let badgeTitle: String
+    let badgeSystemImage: String
+    let badgeTint: Color
+    let title: String
+    let primaryMetadata: String
+    let secondaryMetadata: String
+    let removeButtonTitle: String
+    let removeAction: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(watch.displayProcessName)
+                Label(badgeTitle, systemImage: badgeSystemImage)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(badgeTint)
+
+                Text(title)
                     .font(.body.weight(.semibold))
 
-                Text(primaryMetadataText)
+                Text(primaryMetadata)
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text(secondaryMetadataText)
+                Text(secondaryMetadata)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
 
             Spacer(minLength: 12)
+
+            Button(removeButtonTitle, role: .destructive, action: removeAction)
+                .controlSize(.small)
         }
         .padding(.vertical, 2)
-    }
-
-    private var primaryMetadataText: String {
-        let userText = watch.user?.isEmpty == false ? watch.user! : "--"
-        return "User \(userText) · PID \(watch.pid) · GPU \(watch.gpuIndex)"
-    }
-
-    private var secondaryMetadataText: String {
-        watch.connectionLabel
     }
 }
 
@@ -517,4 +589,9 @@ private struct NotificationHistoryRow: View {
         formatter.dateFormat = "yyyy.MM.dd. HH:mm:ss"
         return formatter.string(from: entry.timestamp)
     }
+}
+
+private func processWatchPrimaryMetadataText(for watch: ProcessExitWatch) -> String {
+    let userText = watch.user?.isEmpty == false ? watch.user! : "--"
+    return "User \(userText) · PID \(watch.pid) · GPU \(watch.gpuIndex)"
 }

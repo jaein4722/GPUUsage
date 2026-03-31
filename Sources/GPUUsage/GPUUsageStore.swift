@@ -1,6 +1,11 @@
 import Combine
 import Foundation
 
+private struct GPUIdleWatchTrackingState: Sendable {
+    var idleSince: Date?
+    var hasHandledCurrentIdleStretch = false
+}
+
 @MainActor
 final class GPUUsageStore: ObservableObject {
     @Published private(set) var settings: AppSettings
@@ -11,6 +16,7 @@ final class GPUUsageStore: ObservableObject {
     @Published private(set) var notificationPermissionState: NotificationPermissionState = .unsupported
     @Published private(set) var loadingProcessDetailGPUIds = Set<Int>()
     @Published private(set) var watchedProcesses = [ProcessExitWatch]()
+    @Published private(set) var watchedIdleGPUs = [GPUIdleWatch]()
     @Published private(set) var notificationHistory = [NotificationHistoryEntry]()
 
     private let fetcher: SSHMetricsFetcher
@@ -19,8 +25,10 @@ final class GPUUsageStore: ObservableObject {
     private let passwordStore = SSHPasswordStore()
     private let settingsKey = "gpu_usage.settings"
     private let watchedProcessesKey = "gpu_usage.process_exit_watches"
+    private let watchedIdleGPUsKey = "gpu_usage.gpu_idle_watches"
     private let notificationHistoryKey = "gpu_usage.notification_history"
     private var pollingTask: Task<Void, Never>?
+    private var idleWatchTrackingStates = [String: GPUIdleWatchTrackingState]()
 
     init(
         fetcher: SSHMetricsFetcher = SSHMetricsFetcher(),
@@ -32,6 +40,7 @@ final class GPUUsageStore: ObservableObject {
         self.userDefaults = userDefaults
         self.settings = Self.loadSettings(from: userDefaults)
         self.watchedProcesses = Self.loadWatchedProcesses(from: userDefaults)
+        self.watchedIdleGPUs = Self.loadWatchedIdleGPUs(from: userDefaults)
         self.notificationHistory = Self.loadNotificationHistory(from: userDefaults)
         self.lastErrorMessage = self.settings.isConfigured ? nil : "SSH target를 입력하면 polling을 시작합니다."
 
@@ -106,6 +115,14 @@ final class GPUUsageStore: ObservableObject {
         watchedProcesses.count
     }
 
+    var watchedIdleGPUCount: Int {
+        watchedIdleGPUs.count
+    }
+
+    var watchedNotificationCount: Int {
+        watchedProcessCount + watchedIdleGPUCount
+    }
+
     var recentNotificationHistory: [NotificationHistoryEntry] {
         NotificationHistoryEntry.recentEntries(from: notificationHistory)
     }
@@ -134,7 +151,10 @@ final class GPUUsageStore: ObservableObject {
 
         if connectionChanged {
             watchedProcesses.removeAll()
+            watchedIdleGPUs.removeAll()
+            idleWatchTrackingStates.removeAll()
             persistWatchedProcesses()
+            persistWatchedIdleGPUs()
         }
 
         configurePolling(resetState: true)
@@ -157,9 +177,12 @@ final class GPUUsageStore: ObservableObject {
         settings = AppSettings()
         snapshot = nil
         watchedProcesses = []
+        watchedIdleGPUs = []
+        idleWatchTrackingStates = [:]
         notificationHistory = []
         userDefaults.removeObject(forKey: settingsKey)
         userDefaults.removeObject(forKey: watchedProcessesKey)
+        userDefaults.removeObject(forKey: watchedIdleGPUsKey)
         userDefaults.removeObject(forKey: notificationHistoryKey)
         lastErrorMessage = "SSH target를 입력하면 polling을 시작합니다."
         noticeMessage = nil
@@ -186,10 +209,39 @@ final class GPUUsageStore: ObservableObject {
         watchedProcesses.contains { $0.matches(process) && $0.connectionFingerprint == settings.connectionFingerprint }
     }
 
+    func isWatchingIdle(for gpu: GPUReading) -> Bool {
+        watchedIdleGPUs.contains { $0.connectionFingerprint == settings.connectionFingerprint && $0.matches(gpu) }
+    }
+
     func toggleExitWatch(for process: GPUProcessReading, on gpu: GPUReading) {
         Task {
             await toggleExitWatchTask(for: process, on: gpu)
         }
+    }
+
+    func toggleIdleWatch(for gpu: GPUReading) {
+        Task {
+            await toggleIdleWatchTask(for: gpu)
+        }
+    }
+
+    func removeProcessWatch(_ watch: ProcessExitWatch) {
+        guard let existingIndex = watchedProcesses.firstIndex(where: { $0.id == watch.id }) else { return }
+
+        let removedWatch = watchedProcesses.remove(at: existingIndex)
+        persistWatchedProcesses()
+        noticeMessage = "프로세스 종료 알림을 해제했습니다."
+        appendNotificationHistory(NotificationHistoryEntry(kind: .watchRemoved, watch: removedWatch))
+    }
+
+    func removeIdleWatch(_ watch: GPUIdleWatch) {
+        guard let existingIndex = watchedIdleGPUs.firstIndex(where: { $0.id == watch.id }) else { return }
+
+        let removedWatch = watchedIdleGPUs.remove(at: existingIndex)
+        idleWatchTrackingStates.removeValue(forKey: removedWatch.id)
+        persistWatchedIdleGPUs()
+        noticeMessage = "GPU idle 알림을 해제했습니다."
+        appendNotificationHistory(NotificationHistoryEntry(kind: .idleWatchRemoved, idleWatch: removedWatch))
     }
 
     func refreshNotificationPermissionState() async {
@@ -287,6 +339,7 @@ final class GPUUsageStore: ObservableObject {
             let mergedSnapshot = mergeProcessDetails(from: self.snapshot, into: fetchedSnapshot)
             self.snapshot = mergedSnapshot
             await evaluateWatchedProcesses(using: mergedSnapshot, settings: currentSettings, password: password.isEmpty ? nil : password)
+            await evaluateWatchedIdleGPUs(using: mergedSnapshot, settings: currentSettings)
             lastErrorMessage = nil
         } catch is CancellationError {
             return
@@ -310,6 +363,15 @@ final class GPUUsageStore: ObservableObject {
             userDefaults.set(data, forKey: watchedProcessesKey)
         } catch {
             lastErrorMessage = "감시 목록을 저장하지 못했습니다: \(error.localizedDescription)"
+        }
+    }
+
+    private func persistWatchedIdleGPUs() {
+        do {
+            let data = try JSONEncoder().encode(watchedIdleGPUs)
+            userDefaults.set(data, forKey: watchedIdleGPUsKey)
+        } catch {
+            lastErrorMessage = "GPU idle 감시 목록을 저장하지 못했습니다: \(error.localizedDescription)"
         }
     }
 
@@ -449,6 +511,46 @@ final class GPUUsageStore: ObservableObject {
         appendNotificationHistory(NotificationHistoryEntry(kind: .watchAdded, watch: newWatch))
     }
 
+    private func toggleIdleWatchTask(for gpu: GPUReading) async {
+        if let existingIndex = watchedIdleGPUs.firstIndex(where: { $0.connectionFingerprint == settings.connectionFingerprint && $0.matches(gpu) }) {
+            let removedWatch = watchedIdleGPUs.remove(at: existingIndex)
+            idleWatchTrackingStates.removeValue(forKey: removedWatch.id)
+            persistWatchedIdleGPUs()
+            noticeMessage = "GPU idle 알림을 해제했습니다."
+            appendNotificationHistory(NotificationHistoryEntry(kind: .idleWatchRemoved, idleWatch: removedWatch))
+            return
+        }
+
+        guard notificationManager.isSupportedEnvironment else {
+            notificationPermissionState = .unsupported
+            noticeMessage = "GPU idle 알림은 번들 앱(.app)으로 실행할 때만 사용할 수 있습니다."
+            return
+        }
+
+        let isAuthorized = await notificationManager.requestAuthorizationIfNeeded()
+        notificationPermissionState = await notificationManager.authorizationStatus()
+        guard isAuthorized else {
+            noticeMessage = "macOS 알림 권한이 없어 GPU idle 알림을 등록하지 못했습니다."
+            return
+        }
+
+        let newWatch = GPUIdleWatch(settings: settings, gpu: gpu)
+        watchedIdleGPUs.append(newWatch)
+        watchedIdleGPUs.sort { $0.gpuIndex < $1.gpuIndex }
+        if gpu.isIdle(memoryThresholdMB: settings.idleMemoryThresholdMB) {
+            idleWatchTrackingStates[newWatch.id] = GPUIdleWatchTrackingState(idleSince: snapshot?.takenAt ?? Date())
+        }
+        persistWatchedIdleGPUs()
+        noticeMessage = "GPU idle 알림을 등록했습니다."
+        appendNotificationHistory(
+            NotificationHistoryEntry(
+                kind: .idleWatchAdded,
+                idleWatch: newWatch,
+                detail: "Idle \(settings.idleNotificationSeconds)s · <=\(settings.idleMemoryThresholdMB)MB"
+            )
+        )
+    }
+
     private func evaluateWatchedProcesses(using snapshot: GPUSnapshot, settings: AppSettings, password: String?) async {
         let matchingWatches = watchedProcesses.filter { $0.connectionFingerprint == settings.connectionFingerprint }
         guard !matchingWatches.isEmpty else { return }
@@ -499,6 +601,82 @@ final class GPUUsageStore: ObservableObject {
         }
     }
 
+    private func evaluateWatchedIdleGPUs(using snapshot: GPUSnapshot, settings: AppSettings) async {
+        let matchingWatches = watchedIdleGPUs.filter { $0.connectionFingerprint == settings.connectionFingerprint }
+        let watchedIDs = Set(matchingWatches.map(\.id))
+        idleWatchTrackingStates = idleWatchTrackingStates.filter { watchedIDs.contains($0.key) }
+
+        guard !matchingWatches.isEmpty else { return }
+
+        var notifiedGPUIndices = [Int]()
+        var failedNotificationGPUIndices = [Int]()
+
+        for watch in matchingWatches {
+            guard let gpu = snapshot.gpus.first(where: watch.matches(_:)) else {
+                idleWatchTrackingStates.removeValue(forKey: watch.id)
+                continue
+            }
+
+            var trackingState = idleWatchTrackingStates[watch.id] ?? GPUIdleWatchTrackingState()
+            let isIdle = gpu.isIdle(memoryThresholdMB: settings.idleMemoryThresholdMB)
+
+            if !isIdle {
+                trackingState.idleSince = nil
+                trackingState.hasHandledCurrentIdleStretch = false
+                idleWatchTrackingStates[watch.id] = trackingState
+                continue
+            }
+
+            if trackingState.idleSince == nil {
+                trackingState.idleSince = snapshot.takenAt
+            }
+
+            guard let idleSince = trackingState.idleSince else {
+                idleWatchTrackingStates[watch.id] = trackingState
+                continue
+            }
+
+            let idleDuration = snapshot.takenAt.timeIntervalSince(idleSince)
+            let threshold = TimeInterval(settings.idleNotificationSeconds)
+
+            guard idleDuration >= threshold, !trackingState.hasHandledCurrentIdleStretch else {
+                idleWatchTrackingStates[watch.id] = trackingState
+                continue
+            }
+
+            let didSchedule = await notificationManager.sendIdleNotification(
+                for: watch,
+                idleDurationSeconds: Int(idleDuration.rounded()),
+                memoryUsedMB: gpu.memoryUsedMB
+            )
+            trackingState.hasHandledCurrentIdleStretch = true
+            idleWatchTrackingStates[watch.id] = trackingState
+
+            if didSchedule {
+                notifiedGPUIndices.append(watch.gpuIndex)
+                appendNotificationHistory(
+                    NotificationHistoryEntry(
+                        kind: .idleNotificationScheduled,
+                        idleWatch: watch,
+                        detail: "Idle \(Int(idleDuration.rounded()))s · \(gpu.memoryUsedMB)MB"
+                    )
+                )
+            } else {
+                failedNotificationGPUIndices.append(watch.gpuIndex)
+            }
+        }
+
+        if !notifiedGPUIndices.isEmpty {
+            if notifiedGPUIndices.count == 1, let gpuIndex = notifiedGPUIndices.first {
+                noticeMessage = "GPU \(gpuIndex) idle 알림을 보냈습니다."
+            } else {
+                noticeMessage = "\(notifiedGPUIndices.count)개 GPU idle 알림을 보냈습니다."
+            }
+        } else if !failedNotificationGPUIndices.isEmpty {
+            noticeMessage = "GPU idle 상태는 감지했지만 macOS 알림 예약에는 실패했습니다."
+        }
+    }
+
     private static func loadSettings(from userDefaults: UserDefaults) -> AppSettings {
         guard
             let data = userDefaults.data(forKey: "gpu_usage.settings"),
@@ -514,6 +692,17 @@ final class GPUUsageStore: ObservableObject {
         guard
             let data = userDefaults.data(forKey: "gpu_usage.process_exit_watches"),
             let watches = try? JSONDecoder().decode([ProcessExitWatch].self, from: data)
+        else {
+            return []
+        }
+
+        return watches
+    }
+
+    private static func loadWatchedIdleGPUs(from userDefaults: UserDefaults) -> [GPUIdleWatch] {
+        guard
+            let data = userDefaults.data(forKey: "gpu_usage.gpu_idle_watches"),
+            let watches = try? JSONDecoder().decode([GPUIdleWatch].self, from: data)
         else {
             return []
         }

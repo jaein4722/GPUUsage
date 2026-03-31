@@ -54,7 +54,7 @@ open dist/GPUUsage-0.2.4-test-<commit>.app
 - `Identity File`: 선택 사항, 필요하면 `~/.ssh/id_ed25519`
 - `SSH Password`: `Password-based`일 때만 사용
 - `Refresh Interval`: polling 간격(초)
-- `Notifications`: macOS 알림 권한 상태 확인, 권한 요청, 테스트 알림 전송, 현재 watch 목록, 최근 24시간 notification 설정 내역 확인
+- `Notifications`: macOS 알림 권한 상태 확인, 권한 요청, 테스트 알림 전송, 현재 `프로세스 종료` / `GPU idle` watch 목록 관리, 최근 24시간 notification 설정 내역 확인
 - `Theme`: `System`, `Light`, `Dark` 중 선택
 - `Show Dock icon`: Dock과 App Switcher에 앱 아이콘 표시 여부
 - `Menu Bar Summary`: 메뉴바에 `평균 사용률`, `busy GPU 수`, 둘 다, 또는 `icon only` 표시
@@ -65,7 +65,9 @@ open dist/GPUUsage-0.2.4-test-<commit>.app
 - 현재 GPU 상태와 프로세스 정보를 보여주는 팝오버를 엽니다.
 - 팝오버 오른쪽 상단의 새로고침 아이콘으로 즉시 polling 가능
 - GPU를 펼친 뒤 각 프로세스 오른쪽의 종 아이콘으로 `프로세스 종료 시 알림` 감시를 걸 수 있음
+- GPU 이름 왼쪽의 별 아이콘으로 `GPU idle 알림`을 토글할 수 있음
 - 감시한 프로세스가 GPU 목록에서 사라져도, 원격 `ps`로 실제 종료 여부를 확인한 뒤 macOS 기본 알림으로 알려줌
+- 별표된 GPU는 `util = 0%` 이고 memory가 지정 임계치 이하인 상태가 일정 시간 이상 유지되면 macOS 기본 알림으로 알려줌
 
 우클릭:
 
@@ -78,6 +80,7 @@ open dist/GPUUsage-0.2.4-test-<commit>.app
 - 기본 `Key-based` 모드에서는 background polling 중 Keychain을 읽지 않습니다.
 - 비밀번호 인증을 쓰는 경우 비밀번호는 `UserDefaults`가 아니라 macOS Keychain에 저장합니다.
 - 프로세스 종료 알림을 처음 사용할 때 macOS 알림 권한을 요청할 수 있습니다.
+- GPU idle 알림도 같은 macOS 알림 권한을 사용합니다.
 - 프로세스 종료 알림은 번들 앱(`GPUUsage.app`)으로 실행할 때만 동작합니다. `swift run` 개발 실행에서는 비활성화됩니다.
 - 테스트용 앱은 `GPUUsage-<version>-test-<commit>.app` 형식으로 생성됩니다.
 - 서버에서 non-interactive shell의 PATH가 다르면 `Remote Command`에 `/usr/bin/nvidia-smi ...` 같은 전체 경로를 넣으세요.

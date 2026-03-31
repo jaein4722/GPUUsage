@@ -92,9 +92,9 @@ struct StatusMenuView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
 
-            if store.watchedProcessCount > 0 {
+            if store.watchedNotificationCount > 0 {
                 Label(
-                    "Watching \(store.watchedProcessCount) process exit\(store.watchedProcessCount == 1 ? "" : "s")",
+                    watchSummaryText,
                     systemImage: "bell.badge.fill"
                 )
                 .font(.caption2)
@@ -118,8 +118,12 @@ struct StatusMenuView: View {
                     gpu: gpu,
                     isExpanded: isExpanded,
                     isLoadingDetails: isLoadingDetails,
+                    isWatchingIdle: store.isWatchingIdle(for: gpu),
                     isWatchingProcessExit: { process in
                         store.isWatchingExit(for: process)
+                    },
+                    toggleIdleWatch: {
+                        store.toggleIdleWatch(for: gpu)
                     },
                     toggleProcessExitWatch: { process in
                         store.toggleExitWatch(for: process, on: gpu)
@@ -152,60 +156,108 @@ struct StatusMenuView: View {
             expandedGPUIds.insert(gpuId)
         }
     }
+
+    private var watchSummaryText: String {
+        let processCount = store.watchedProcessCount
+        let idleCount = store.watchedIdleGPUCount
+        var parts = [String]()
+
+        if processCount > 0 {
+            parts.append("\(processCount) process exit")
+        }
+
+        if idleCount > 0 {
+            parts.append("\(idleCount) GPU idle")
+        }
+
+        return "Watching " + parts.joined(separator: " · ")
+    }
 }
 
 private struct GPUListRow: View {
     let gpu: GPUReading
     let isExpanded: Bool
     let isLoadingDetails: Bool
+    let isWatchingIdle: Bool
     let isWatchingProcessExit: (GPUProcessReading) -> Bool
+    let toggleIdleWatch: () -> Void
     let toggleProcessExitWatch: (GPUProcessReading) -> Void
     let toggleExpansion: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Button(action: toggleExpansion) {
-                VStack(alignment: .leading, spacing: 7) {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text("GPU \(gpu.index)")
-                            .font(.headline)
-
-                        Text(gpu.name)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-
-                        Spacer(minLength: 8)
-
-                        Text("\(gpu.temperatureSummary) · \(gpu.processes.count)p · \(gpu.utilization)%")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.primary)
-                            .monospacedDigit()
-
-                        Image(systemName: isExpanded ? "chevron.up.circle.fill" : "chevron.down.circle.fill")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(isExpanded ? .orange : .secondary)
-                    }
-
-                    HStack(spacing: 10) {
-                        ThinMetricBar(
-                            title: "Util",
-                            valueText: "\(gpu.utilization)%",
-                            ratio: gpu.utilizationRatio,
-                            tint: Color(red: 0.93, green: 0.45, blue: 0.15)
-                        )
-
-                        ThinMetricBar(
-                            title: "Mem",
-                            valueText: "\(gpu.memoryUsagePercent)% · \(gpu.memoryUsedMB)/\(gpu.memoryTotalMB)MB",
-                            ratio: gpu.memoryUsageRatio,
-                            tint: Color(red: 0.12, green: 0.54, blue: 0.94)
-                        )
-                    }
+            HStack(alignment: .top, spacing: 8) {
+                Button(action: toggleIdleWatch) {
+                    Image(systemName: isWatchingIdle ? "star.fill" : "star")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(isWatchingIdle ? Color.yellow : Color.secondary)
+                        .frame(width: 18, height: 18)
                 }
+                .buttonStyle(.plain)
                 .contentShape(Rectangle())
+                .help(isWatchingIdle ? "GPU idle 알림 해제" : "GPU idle 알림 받기")
+
+                Button(action: toggleExpansion) {
+                    VStack(alignment: .leading, spacing: 7) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text("GPU \(gpu.index)")
+                                .font(.headline)
+
+                            Text(gpu.name)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+
+                            Spacer(minLength: 8)
+
+                            Text("\(gpu.temperatureSummary) · \(gpu.processes.count)p · \(gpu.utilization)%")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .monospacedDigit()
+
+                            Image(systemName: isExpanded ? "chevron.up.circle.fill" : "chevron.down.circle.fill")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(isExpanded ? .orange : .secondary)
+                        }
+
+                        HStack(spacing: 10) {
+                            ThinMetricBar(
+                                title: "Util",
+                                valueText: "\(gpu.utilization)%",
+                                ratio: gpu.utilizationRatio,
+                                tint: Color(red: 0.93, green: 0.45, blue: 0.15)
+                            )
+
+                            ThinMetricBar(
+                                title: "Mem",
+                                valueText: "\(gpu.memoryUsagePercent)% · \(gpu.memoryUsedMB)/\(gpu.memoryTotalMB)MB",
+                                ratio: gpu.memoryUsageRatio,
+                                tint: Color(red: 0.12, green: 0.54, blue: 0.94)
+                            )
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+
+            if isWatchingIdle {
+                HStack(spacing: 0) {
+                    Color.clear
+                        .frame(width: 26, height: 1)
+
+                    Label("Idle notification armed", systemImage: "star.fill")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.yellow)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.yellow.opacity(0.12))
+                        )
+                }
+            }
 
             if isExpanded {
                 Divider()

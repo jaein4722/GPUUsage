@@ -128,6 +128,8 @@ import Testing
     #expect(settings.menuBarDisplayMode == .averageAndBusy)
     #expect(settings.appearanceMode == .system)
     #expect(settings.showsDockIcon == false)
+    #expect(settings.idleNotificationSeconds == 300)
+    #expect(settings.idleMemoryThresholdMB == 50)
 }
 
 @Test func menuBarDisplayModesBuildExpectedSummary() {
@@ -215,4 +217,69 @@ import Testing
     let filtered = NotificationHistoryEntry.recentEntries(from: [old, recent], now: now)
 
     #expect(filtered == [recent])
+}
+
+@Test func normalizesIdleAlertThresholds() {
+    let settings = AppSettings(
+        idleNotificationSeconds: 5,
+        idleMemoryThresholdMB: 50_000
+    ).normalized()
+
+    #expect(settings.idleNotificationSeconds == 30)
+    #expect(settings.idleMemoryThresholdMB == 4_096)
+}
+
+@Test func gpuIdleWatchMatchesByUUIDOrIndex() {
+    let settings = AppSettings(sshTarget: "gpu-prod")
+    let gpuWithUUID = GPUReading(
+        index: 7,
+        name: "A6000",
+        uuid: "GPU-777",
+        utilization: 0,
+        memoryUsedMB: 12,
+        memoryTotalMB: 48_068,
+        temperatureCelsius: 31,
+        processes: []
+    )
+    let gpuWithoutUUID = GPUReading(
+        index: 7,
+        name: "A6000",
+        uuid: nil,
+        utilization: 0,
+        memoryUsedMB: 12,
+        memoryTotalMB: 48_068,
+        temperatureCelsius: 31,
+        processes: []
+    )
+    let watch = GPUIdleWatch(settings: settings, gpu: gpuWithUUID)
+
+    #expect(watch.matches(gpuWithUUID))
+    #expect(watch.matches(gpuWithoutUUID))
+}
+
+@Test func gpuReadingIdleCheckUsesUtilAndMemoryThreshold() {
+    let idleGPU = GPUReading(
+        index: 0,
+        name: "A6000",
+        uuid: "GPU-1",
+        utilization: 0,
+        memoryUsedMB: 49,
+        memoryTotalMB: 48_068,
+        temperatureCelsius: 31,
+        processes: []
+    )
+    let busyGPU = GPUReading(
+        index: 0,
+        name: "A6000",
+        uuid: "GPU-1",
+        utilization: 2,
+        memoryUsedMB: 49,
+        memoryTotalMB: 48_068,
+        temperatureCelsius: 31,
+        processes: []
+    )
+
+    #expect(idleGPU.isIdle(memoryThresholdMB: 50))
+    #expect(!idleGPU.isIdle(memoryThresholdMB: 10))
+    #expect(!busyGPU.isIdle(memoryThresholdMB: 50))
 }

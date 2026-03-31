@@ -149,6 +149,8 @@ struct AppSettings: Codable, Equatable, Sendable {
     var menuBarDisplayMode: MenuBarDisplayMode = .averageAndBusy
     var appearanceMode: AppAppearanceMode = .system
     var showsDockIcon: Bool = false
+    var idleNotificationSeconds: Int = 300
+    var idleMemoryThresholdMB: Int = 50
 
     init(
         sshTarget: String = "",
@@ -159,7 +161,9 @@ struct AppSettings: Codable, Equatable, Sendable {
         remoteCommand: String = Self.defaultRemoteCommand,
         menuBarDisplayMode: MenuBarDisplayMode = .averageAndBusy,
         appearanceMode: AppAppearanceMode = .system,
-        showsDockIcon: Bool = false
+        showsDockIcon: Bool = false,
+        idleNotificationSeconds: Int = 300,
+        idleMemoryThresholdMB: Int = 50
     ) {
         self.sshTarget = sshTarget
         self.sshPort = sshPort
@@ -170,6 +174,8 @@ struct AppSettings: Codable, Equatable, Sendable {
         self.menuBarDisplayMode = menuBarDisplayMode
         self.appearanceMode = appearanceMode
         self.showsDockIcon = showsDockIcon
+        self.idleNotificationSeconds = idleNotificationSeconds
+        self.idleMemoryThresholdMB = idleMemoryThresholdMB
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -182,6 +188,8 @@ struct AppSettings: Codable, Equatable, Sendable {
         case menuBarDisplayMode
         case appearanceMode
         case showsDockIcon
+        case idleNotificationSeconds
+        case idleMemoryThresholdMB
     }
 
     init(from decoder: Decoder) throws {
@@ -195,7 +203,9 @@ struct AppSettings: Codable, Equatable, Sendable {
             remoteCommand: try container.decodeIfPresent(String.self, forKey: .remoteCommand) ?? Self.defaultRemoteCommand,
             menuBarDisplayMode: try container.decodeIfPresent(MenuBarDisplayMode.self, forKey: .menuBarDisplayMode) ?? .averageAndBusy,
             appearanceMode: try container.decodeIfPresent(AppAppearanceMode.self, forKey: .appearanceMode) ?? .system,
-            showsDockIcon: try container.decodeIfPresent(Bool.self, forKey: .showsDockIcon) ?? false
+            showsDockIcon: try container.decodeIfPresent(Bool.self, forKey: .showsDockIcon) ?? false,
+            idleNotificationSeconds: try container.decodeIfPresent(Int.self, forKey: .idleNotificationSeconds) ?? 300,
+            idleMemoryThresholdMB: try container.decodeIfPresent(Int.self, forKey: .idleMemoryThresholdMB) ?? 50
         )
     }
 
@@ -209,6 +219,8 @@ struct AppSettings: Codable, Equatable, Sendable {
         copy.sshPort = sshPort.trimmingCharacters(in: .whitespacesAndNewlines)
         copy.sshIdentityFilePath = NSString(string: sshIdentityFilePath.trimmingCharacters(in: .whitespacesAndNewlines)).expandingTildeInPath
         copy.pollIntervalSeconds = min(max(pollIntervalSeconds, 3), 300)
+        copy.idleNotificationSeconds = min(max(idleNotificationSeconds, 30), 86_400)
+        copy.idleMemoryThresholdMB = min(max(idleMemoryThresholdMB, 0), 4_096)
 
         let trimmedCommand = remoteCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedCommand.isEmpty || trimmedCommand == Self.legacyDefaultRemoteCommand {
@@ -277,6 +289,10 @@ struct GPUReading: Identifiable, Equatable, Sendable {
 
     var processSummary: String {
         processes.isEmpty ? "No active processes" : "\(processes.count) active process\(processes.count == 1 ? "" : "es")"
+    }
+
+    func isIdle(memoryThresholdMB: Int) -> Bool {
+        utilization == 0 && memoryUsedMB <= memoryThresholdMB
     }
 }
 
@@ -428,13 +444,57 @@ struct ProcessExitWatch: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
+struct GPUIdleWatch: Codable, Identifiable, Equatable, Sendable {
+    let connectionFingerprint: String
+    let connectionLabel: String
+    let gpuUUID: String?
+    let gpuIndex: Int
+    let gpuName: String
+    let createdAt: Date
+
+    init(settings: AppSettings, gpu: GPUReading, createdAt: Date = Date()) {
+        self.connectionFingerprint = settings.connectionFingerprint
+        self.connectionLabel = settings.sshTarget
+        self.gpuUUID = gpu.uuid
+        self.gpuIndex = gpu.index
+        self.gpuName = gpu.name
+        self.createdAt = createdAt
+    }
+
+    var id: String {
+        let identifier = gpuUUID ?? "gpu-\(gpuIndex)"
+        return "\(connectionFingerprint):\(identifier)"
+    }
+
+    var title: String {
+        "GPU \(gpuIndex)"
+    }
+
+    var subtitle: String {
+        [gpuName, connectionLabel]
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+    }
+
+    func matches(_ gpu: GPUReading) -> Bool {
+        if let gpuUUID, let currentUUID = gpu.uuid {
+            return gpuUUID == currentUUID
+        }
+
+        return gpu.index == gpuIndex
+    }
+}
+
 enum NotificationHistoryKind: String, Codable, Equatable, Sendable {
     case permissionEnabled
     case permissionDenied
     case watchAdded
     case watchRemoved
+    case idleWatchAdded
+    case idleWatchRemoved
     case testNotificationScheduled
     case exitNotificationScheduled
+    case idleNotificationScheduled
 
     var title: String {
         switch self {
@@ -443,13 +503,19 @@ enum NotificationHistoryKind: String, Codable, Equatable, Sendable {
         case .permissionDenied:
             return "Permission denied"
         case .watchAdded:
-            return "Watch enabled"
+            return "Process watch enabled"
         case .watchRemoved:
-            return "Watch removed"
+            return "Process watch removed"
+        case .idleWatchAdded:
+            return "GPU idle watch enabled"
+        case .idleWatchRemoved:
+            return "GPU idle watch removed"
         case .testNotificationScheduled:
             return "Test notification sent"
         case .exitNotificationScheduled:
-            return "Exit notification sent"
+            return "Process exit notification sent"
+        case .idleNotificationScheduled:
+            return "GPU idle notification sent"
         }
     }
 }
@@ -496,6 +562,16 @@ struct NotificationHistoryEntry: Codable, Identifiable, Equatable, Sendable {
             user: watch.user,
             processName: watch.displayProcessName,
             detail: detail
+        )
+    }
+
+    init(kind: NotificationHistoryKind, idleWatch: GPUIdleWatch, detail: String? = nil) {
+        self.init(
+            kind: kind,
+            connectionLabel: idleWatch.connectionLabel,
+            gpuIndex: idleWatch.gpuIndex,
+            processName: idleWatch.title,
+            detail: detail ?? idleWatch.gpuName
         )
     }
 

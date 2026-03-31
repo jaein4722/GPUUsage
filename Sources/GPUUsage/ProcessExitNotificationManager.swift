@@ -84,6 +84,36 @@ struct ProcessExitNotificationManager {
         }
     }
 
+    func sendIdleNotification(for watch: GPUIdleWatch, idleDurationSeconds: Int, memoryUsedMB: Int) async -> Bool {
+        guard let center else { return false }
+
+        let content = UNMutableNotificationContent()
+        content.title = "\(watch.title) is idle"
+        content.body = [
+            watch.connectionLabel,
+            watch.gpuName,
+            "Idle \(idleDurationSeconds)s",
+            "Mem \(memoryUsedMB) MB"
+        ]
+        .filter { !$0.isEmpty }
+        .joined(separator: " · ")
+        content.sound = .default
+        content.interruptionLevel = .active
+
+        let request = UNNotificationRequest(
+            identifier: "gpuusage.gpu-idle.\(watch.id)",
+            content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        )
+
+        do {
+            try await center.add(request)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     func sendTestNotification() async -> Bool {
         guard let center else { return false }
 
