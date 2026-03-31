@@ -236,14 +236,14 @@ private struct GPUListRow: View {
 
                         HStack(spacing: 10) {
                             ThinMetricBar(
-                                title: t("Util", "사용률"),
+                                title: "Util",
                                 valueText: "\(gpu.utilization)%",
                                 ratio: gpu.utilizationRatio,
                                 tint: Color(red: 0.93, green: 0.45, blue: 0.15)
                             )
 
                             ThinMetricBar(
-                                title: t("Mem", "메모리"),
+                                title: "Memory",
                                 valueText: "\(gpu.memoryUsagePercent)% · \(gpu.memoryUsedMB)/\(gpu.memoryTotalMB)MB",
                                 ratio: gpu.memoryUsageRatio,
                                 tint: Color(red: 0.12, green: 0.54, blue: 0.94)

@@ -33,6 +33,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private let menu = NSMenu()
     private var cancellables = Set<AnyCancellable>()
     private var localOutsideClickMonitor: Any?
+    private var globalOutsideClickMonitor: Any?
     private lazy var settingsMenuItem = NSMenuItem(title: "", action: #selector(openSettings), keyEquivalent: ",")
     private lazy var quitMenuItem = NSMenuItem(title: "", action: #selector(quit), keyEquivalent: "q")
     private var settingsRelayHostingView: NSHostingView<SettingsActionRelayView>?
@@ -213,11 +214,19 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     }
 
     private func installOutsideClickMonitorIfNeeded() {
-        guard localOutsideClickMonitor == nil else { return }
+        if localOutsideClickMonitor == nil {
+            localOutsideClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
+                guard let self else { return event }
+                return self.handleLocalOutsideClick(event)
+            }
+        }
 
-        localOutsideClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
-            guard let self else { return event }
-            return self.handleLocalOutsideClick(event)
+        if globalOutsideClickMonitor == nil {
+            globalOutsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.closePopoverForOutsideInteraction()
+                }
+            }
         }
     }
 
@@ -225,6 +234,11 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         if let localOutsideClickMonitor {
             NSEvent.removeMonitor(localOutsideClickMonitor)
             self.localOutsideClickMonitor = nil
+        }
+
+        if let globalOutsideClickMonitor {
+            NSEvent.removeMonitor(globalOutsideClickMonitor)
+            self.globalOutsideClickMonitor = nil
         }
     }
 
