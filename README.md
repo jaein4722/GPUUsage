@@ -5,6 +5,11 @@
   <h1>GPUUsage</h1>
   <p>A native macOS menu bar app for monitoring remote NVIDIA GPU servers over SSH.</p>
   <p>
+    <img src="https://img.shields.io/github/v/release/jaein4722/GPUUsage?style=flat-square" alt="GitHub Release">
+    <img src="https://img.shields.io/badge/macOS-14%2B-111111?style=flat-square&logo=apple" alt="macOS 14+">
+    <img src="https://img.shields.io/badge/Swift-6.2-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift 6.2">
+  </p>
+  <p>
     <a href="https://github.com/jaein4722/GPUUsage/releases">Download Latest Release</a>
     ·
     <a href="https://github.com/jaein4722/GPUUsage/issues">Report Bug</a>
@@ -64,6 +69,14 @@ brew install --cask jaein4722/tap/gpuusage
 
 Download the latest `.dmg` from the [Releases page](https://github.com/jaein4722/GPUUsage/releases).
 
+### Manual Installation
+
+1. Download the latest `GPUUsage.dmg` from [GitHub Releases](https://github.com/jaein4722/GPUUsage/releases).
+2. Open the DMG.
+3. Drag `GPUUsage.app` into `Applications`.
+4. Launch the app from `Applications`.
+5. If macOS blocks the app because it cannot verify the developer, open `System Settings > Privacy & Security` and choose `Open Anyway`.
+
 ## Requirements
 
 - macOS 14 or later
@@ -116,6 +129,7 @@ The interface can be set to:
 - In key-based mode, background polling does not read from Keychain.
 - In password-based mode, the password is stored in macOS Keychain, not `UserDefaults`.
 - If the remote non-interactive shell has a limited `PATH`, set `Remote Command` to an absolute path such as `/usr/bin/nvidia-smi`.
+- Public DMG downloads may still trigger a Gatekeeper warning unless the release is signed and notarized.
 - Short release notes are tracked in [CHANGELOG.md](/Users/leejaein/Documents/SideProjects/GPUUsage/CHANGELOG.md).
 
 ## For Developers
