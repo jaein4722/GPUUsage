@@ -26,6 +26,13 @@ swift run
 
 또는 Xcode에서 `Package.swift`를 열어서 실행해도 됩니다.
 
+알림처럼 번들 앱이 필요한 기능을 개발 중에 확인하려면 테스트용 `.app`를 만드세요.
+
+```bash
+./scripts/build_test_app.sh
+open dist/GPUUsage.app
+```
+
 ## First-time setup
 
 앱을 실행한 뒤 메뉴바 아이콘을 우클릭해서 `Settings…`를 엽니다. 설정 창은 macOS 기본 Settings 스타일을 따르며, `General`, `Appearance`, `Advanced`, `About` 네 섹션으로 나뉩니다. 변경 사항은 `Apply` 없이 자동 반영됩니다.
@@ -73,6 +80,8 @@ swift run
 - `dist/GPUUsage.app`
 - `dist/GPUUsage-0.2.4.dmg`
 - 저장소 루트에 `icon.png`가 있으면 자동으로 `.icns`로 변환되어 앱 아이콘으로 포함
+- `SKIP_DMG=1`을 주면 `.app`만 만들고 DMG는 생략
+- `BUILD_CONFIGURATION=debug`를 주면 debug 빌드 기반 `.app` 생성
 
 옵션 환경 변수:
 
