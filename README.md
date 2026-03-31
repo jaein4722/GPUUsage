@@ -8,6 +8,7 @@
     <img src="https://img.shields.io/github/v/release/jaein4722/GPUUsage?style=flat-square" alt="GitHub Release">
     <img src="https://img.shields.io/badge/macOS-14%2B-111111?style=flat-square&logo=apple" alt="macOS 14+">
     <img src="https://img.shields.io/badge/Swift-6.2-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift 6.2">
+    <img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square" alt="MIT License">
   </p>
   <p>
     <a href="https://github.com/jaein4722/GPUUsage/releases">Download Latest Release</a>
@@ -135,6 +136,10 @@ The interface can be set to:
 ## For Developers
 
 Development, packaging, test app, and release workflow notes live in [docs/DEVELOPMENT.md](/Users/leejaein/Documents/SideProjects/GPUUsage/docs/DEVELOPMENT.md).
+
+## License
+
+Distributed under the MIT License. See [LICENSE](/Users/leejaein/Documents/SideProjects/GPUUsage/LICENSE) for details.
 
 ## Acknowledgments
 
