@@ -181,7 +181,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
     private func updatePopoverSize() {
         let gpuCount = max(store.snapshot?.gpus.count ?? 0, 1)
-        let height = min(CGFloat(820), max(260, CGFloat(110 + gpuCount * 58)))
+        let height = min(CGFloat(940), max(320, CGFloat(170 + gpuCount * 84)))
         popover.contentSize = NSSize(width: 500, height: height)
     }
 
