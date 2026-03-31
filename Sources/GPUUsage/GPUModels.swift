@@ -103,6 +103,39 @@ enum SSHAuthenticationMode: String, Codable, CaseIterable, Equatable, Hashable, 
     }
 }
 
+enum NotificationPermissionState: Equatable, Sendable {
+    case unsupported
+    case notDetermined
+    case denied
+    case authorized
+
+    var title: String {
+        switch self {
+        case .unsupported:
+            return "Unavailable"
+        case .notDetermined:
+            return "Not enabled"
+        case .denied:
+            return "Denied"
+        case .authorized:
+            return "Enabled"
+        }
+    }
+
+    var detailText: String {
+        switch self {
+        case .unsupported:
+            return "개발용 `swift run` 실행에서는 macOS 알림을 사용할 수 없습니다."
+        case .notDetermined:
+            return "프로세스 종료 알림을 쓰려면 macOS 알림 권한을 허용해야 합니다."
+        case .denied:
+            return "macOS에서 GPUUsage 알림 권한이 거부된 상태입니다. 시스템 설정에서 허용해야 합니다."
+        case .authorized:
+            return "프로세스 종료 알림을 보낼 준비가 되어 있습니다."
+        }
+    }
+}
+
 struct AppSettings: Codable, Equatable, Sendable {
     static let legacyDefaultRemoteCommand = "nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits"
     static let defaultRemoteCommand = "nvidia-smi --query-gpu=index,name,uuid,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits"

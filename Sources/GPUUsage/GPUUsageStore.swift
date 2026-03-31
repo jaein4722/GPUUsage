@@ -8,6 +8,7 @@ final class GPUUsageStore: ObservableObject {
     @Published private(set) var isRefreshing = false
     @Published private(set) var lastErrorMessage: String?
     @Published private(set) var noticeMessage: String?
+    @Published private(set) var notificationPermissionState: NotificationPermissionState = .unsupported
     @Published private(set) var loadingProcessDetailGPUIds = Set<Int>()
     @Published private(set) var watchedProcesses = [ProcessExitWatch]()
 
@@ -32,6 +33,9 @@ final class GPUUsageStore: ObservableObject {
         self.lastErrorMessage = self.settings.isConfigured ? nil : "SSH target를 입력하면 polling을 시작합니다."
 
         configurePolling(resetState: false)
+        Task { [weak self] in
+            await self?.refreshNotificationPermissionState()
+        }
     }
 
     deinit {
@@ -176,6 +180,45 @@ final class GPUUsageStore: ObservableObject {
     func toggleExitWatch(for process: GPUProcessReading, on gpu: GPUReading) {
         Task {
             await toggleExitWatchTask(for: process, on: gpu)
+        }
+    }
+
+    func refreshNotificationPermissionState() async {
+        notificationPermissionState = await notificationManager.authorizationStatus()
+    }
+
+    func requestNotificationPermission() {
+        Task {
+            let state = await notificationManager.requestAuthorization()
+            notificationPermissionState = state
+
+            switch state {
+            case .authorized:
+                noticeMessage = "macOS 알림 권한을 허용했습니다."
+            case .denied:
+                noticeMessage = "알림 권한이 거부되었습니다. 시스템 설정에서 GPUUsage 알림을 허용하세요."
+            case .notDetermined:
+                noticeMessage = "알림 권한 상태를 확인하지 못했습니다."
+            case .unsupported:
+                noticeMessage = "번들 앱(.app)으로 실행할 때만 macOS 알림을 사용할 수 있습니다."
+            }
+        }
+    }
+
+    func sendTestNotification() {
+        Task {
+            let state = await notificationManager.authorizationStatus()
+            notificationPermissionState = state
+
+            guard state == .authorized else {
+                noticeMessage = "먼저 macOS 알림 권한을 허용하세요."
+                return
+            }
+
+            let didSchedule = await notificationManager.sendTestNotification()
+            noticeMessage = didSchedule
+                ? "1초 뒤 테스트 알림을 보냅니다."
+                : "테스트 알림 예약에 실패했습니다."
         }
     }
 
@@ -345,11 +388,13 @@ final class GPUUsageStore: ObservableObject {
         }
 
         guard notificationManager.isSupportedEnvironment else {
+            notificationPermissionState = .unsupported
             noticeMessage = "프로세스 종료 알림은 번들 앱(.app)으로 실행할 때만 사용할 수 있습니다."
             return
         }
 
         let isAuthorized = await notificationManager.requestAuthorizationIfNeeded()
+        notificationPermissionState = await notificationManager.authorizationStatus()
         guard isAuthorized else {
             noticeMessage = "macOS 알림 권한이 없어 종료 알림을 등록하지 못했습니다."
             return

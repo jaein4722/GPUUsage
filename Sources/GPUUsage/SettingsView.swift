@@ -53,6 +53,9 @@ struct SettingsView: View {
         .onAppear {
             reloadSSHConfigHosts()
             loadCurrentSettings()
+            Task {
+                await store.refreshNotificationPermissionState()
+            }
         }
         .onChange(of: draft) { _, _ in
             scheduleAutoApply()
@@ -170,6 +173,39 @@ struct SettingsView: View {
                 Text("Polling")
             } footer: {
                 Text("설정 변경은 자동으로 저장되고, polling 주기도 즉시 다시 시작됩니다.")
+            }
+
+            Section {
+                LabeledContent("Status") {
+                    Text(store.notificationPermissionState.title)
+                        .foregroundStyle(store.notificationPermissionState == .authorized ? .green : .secondary)
+                }
+
+                Text(store.notificationPermissionState.detailText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 8) {
+                    Button(store.notificationPermissionState == .authorized ? "Re-check Permission" : "Enable Notifications") {
+                        store.requestNotificationPermission()
+                    }
+
+                    if store.notificationPermissionState == .authorized {
+                        Button("Send Test Notification") {
+                            store.sendTestNotification()
+                        }
+                    } else {
+                        Button("Refresh Status") {
+                            Task {
+                                await store.refreshNotificationPermissionState()
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text("Notifications")
+            } footer: {
+                Text("이 권한은 프로세스별 종료 알림 기능에만 사용됩니다. 권한 허용 후에도 실제 알림은 각 프로세스 행의 `Notify` 버튼으로 개별 설정합니다.")
             }
         }
         .formStyle(.grouped)
