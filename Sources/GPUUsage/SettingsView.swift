@@ -34,6 +34,11 @@ struct SettingsView: View {
                     Label("General", systemImage: "gearshape")
                 }
 
+            notificationsPane
+                .tabItem {
+                    Label("Notifications", systemImage: "bell.badge")
+                }
+
             appearancePane
                 .tabItem {
                     Label("Appearance", systemImage: "menubar.rectangle")
@@ -174,7 +179,12 @@ struct SettingsView: View {
             } footer: {
                 Text("설정 변경은 자동으로 저장되고, polling 주기도 즉시 다시 시작됩니다.")
             }
+        }
+        .formStyle(.grouped)
+    }
 
+    private var notificationsPane: some View {
+        Form {
             Section {
                 LabeledContent("Status") {
                     Text(store.notificationPermissionState.title)
@@ -190,22 +200,52 @@ struct SettingsView: View {
                         store.requestNotificationPermission()
                     }
 
+                    Button("Refresh Status") {
+                        Task {
+                            await store.refreshNotificationPermissionState()
+                        }
+                    }
+
                     if store.notificationPermissionState == .authorized {
                         Button("Send Test Notification") {
                             store.sendTestNotification()
                         }
-                    } else {
-                        Button("Refresh Status") {
-                            Task {
-                                await store.refreshNotificationPermissionState()
-                            }
-                        }
                     }
                 }
             } header: {
-                Text("Notifications")
+                Text("Permission")
             } footer: {
                 Text("이 권한은 프로세스별 종료 알림 기능에만 사용됩니다. 권한 허용 후에도 실제 알림은 각 프로세스 행의 `Notify` 버튼으로 개별 설정합니다.")
+            }
+
+            Section {
+                if store.watchedProcesses.isEmpty {
+                    Text("현재 설정된 프로세스 종료 알림이 없습니다.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(store.watchedProcesses) { watch in
+                        NotificationWatchRow(watch: watch)
+                    }
+                }
+            } header: {
+                Text("Active Watches")
+            } footer: {
+                Text("현재 종료 알림을 감시 중인 프로세스입니다. pid, user, 프로세스명, GPU index 기준으로 표시합니다.")
+            }
+
+            Section {
+                if store.recentNotificationHistory.isEmpty {
+                    Text("최근 24시간 내 notification 설정 내역이 없습니다.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(store.recentNotificationHistory) { entry in
+                        NotificationHistoryRow(entry: entry)
+                    }
+                }
+            } header: {
+                Text("Recent 24 Hours")
+            } footer: {
+                Text("최근 24시간 동안의 권한 허용, watch on/off, 테스트 알림, 실제 종료 알림 전송 내역입니다.")
             }
         }
         .formStyle(.grouped)
@@ -400,5 +440,68 @@ struct SettingsView: View {
         DispatchQueue.main.async {
             suppressAutoApply = false
         }
+    }
+}
+
+private struct NotificationWatchRow: View {
+    let watch: ProcessExitWatch
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(watch.displayProcessName)
+                    .font(.body.weight(.semibold))
+
+                Text(metadataText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 12)
+
+            Text("\(watch.usedGPUMemoryMB) MB")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var metadataText: String {
+        let userText = watch.user?.isEmpty == false ? watch.user! : "--"
+        return "GPU \(watch.gpuIndex) · PID \(watch.pid) · User \(userText) · \(watch.connectionLabel)"
+    }
+}
+
+private struct NotificationHistoryRow: View {
+    let entry: NotificationHistoryEntry
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.title)
+                    .font(.body.weight(.semibold))
+
+                if !entry.subtitle.isEmpty {
+                    Text(entry.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+
+            Spacer(minLength: 12)
+
+            Text(relativeTimeText)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var relativeTimeText: String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: entry.timestamp, relativeTo: Date())
     }
 }

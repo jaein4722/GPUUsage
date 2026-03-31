@@ -44,7 +44,7 @@ open dist/GPUUsage-0.2.4-test-<commit>.app
 
 ## First-time setup
 
-앱을 실행한 뒤 메뉴바 아이콘을 우클릭해서 `Settings…`를 엽니다. 설정 창은 macOS 기본 Settings 스타일을 따르며, `General`, `Appearance`, `Advanced`, `About` 네 섹션으로 나뉩니다. 변경 사항은 `Apply` 없이 자동 반영됩니다.
+앱을 실행한 뒤 메뉴바 아이콘을 우클릭해서 `Settings…`를 엽니다. 설정 창은 macOS 기본 Settings 스타일을 따르며, `General`, `Notifications`, `Appearance`, `Advanced`, `About` 다섯 섹션으로 나뉩니다. 변경 사항은 `Apply` 없이 자동 반영됩니다.
 
 - `Import From ~/.ssh/config`: 로컬 `~/.ssh/config`에 등록된 alias를 바로 가져와 적용
 - `SSH Target`: `gpu-prod` 또는 `user@host`
@@ -52,7 +52,7 @@ open dist/GPUUsage-0.2.4-test-<commit>.app
 - `Identity File`: 선택 사항, 필요하면 `~/.ssh/id_ed25519`
 - `SSH Password`: `Password-based`일 때만 사용
 - `Refresh Interval`: polling 간격(초)
-- `Notifications`: macOS 알림 권한 상태 확인, 권한 요청, 테스트 알림 전송
+- `Notifications`: macOS 알림 권한 상태 확인, 권한 요청, 테스트 알림 전송, 현재 watch 목록, 최근 24시간 notification 설정 내역 확인
 - `Theme`: `System`, `Light`, `Dark` 중 선택
 - `Show Dock icon`: Dock과 App Switcher에 앱 아이콘 표시 여부
 - `Menu Bar Summary`: 메뉴바에 `평균 사용률`, `busy GPU 수`, 둘 다, 또는 `icon only` 표시

@@ -190,3 +190,29 @@ import Testing
 
     #expect(exited == [watch])
 }
+
+@Test func notificationHistoryFiltersToRecent24Hours() {
+    let now = Date()
+    let recent = NotificationHistoryEntry(
+        timestamp: now.addingTimeInterval(-(2 * 3600)),
+        kind: .watchAdded,
+        connectionLabel: "gpu-prod",
+        gpuIndex: 0,
+        pid: 1234,
+        user: "alice",
+        processName: "python"
+    )
+    let old = NotificationHistoryEntry(
+        timestamp: now.addingTimeInterval(-(30 * 3600)),
+        kind: .watchRemoved,
+        connectionLabel: "gpu-prod",
+        gpuIndex: 0,
+        pid: 1234,
+        user: "alice",
+        processName: "python"
+    )
+
+    let filtered = NotificationHistoryEntry.recentEntries(from: [old, recent], now: now)
+
+    #expect(filtered == [recent])
+}

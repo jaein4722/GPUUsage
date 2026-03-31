@@ -428,6 +428,119 @@ struct ProcessExitWatch: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
+enum NotificationHistoryKind: String, Codable, Equatable, Sendable {
+    case permissionEnabled
+    case permissionDenied
+    case watchAdded
+    case watchRemoved
+    case testNotificationScheduled
+    case exitNotificationScheduled
+
+    var title: String {
+        switch self {
+        case .permissionEnabled:
+            return "Permission enabled"
+        case .permissionDenied:
+            return "Permission denied"
+        case .watchAdded:
+            return "Watch enabled"
+        case .watchRemoved:
+            return "Watch removed"
+        case .testNotificationScheduled:
+            return "Test notification sent"
+        case .exitNotificationScheduled:
+            return "Exit notification sent"
+        }
+    }
+}
+
+struct NotificationHistoryEntry: Codable, Identifiable, Equatable, Sendable {
+    let id: UUID
+    let timestamp: Date
+    let kind: NotificationHistoryKind
+    let connectionLabel: String?
+    let gpuIndex: Int?
+    let pid: Int?
+    let user: String?
+    let processName: String?
+    let detail: String?
+
+    init(
+        id: UUID = UUID(),
+        timestamp: Date = Date(),
+        kind: NotificationHistoryKind,
+        connectionLabel: String? = nil,
+        gpuIndex: Int? = nil,
+        pid: Int? = nil,
+        user: String? = nil,
+        processName: String? = nil,
+        detail: String? = nil
+    ) {
+        self.id = id
+        self.timestamp = timestamp
+        self.kind = kind
+        self.connectionLabel = connectionLabel
+        self.gpuIndex = gpuIndex
+        self.pid = pid
+        self.user = user
+        self.processName = processName
+        self.detail = detail
+    }
+
+    init(kind: NotificationHistoryKind, watch: ProcessExitWatch, detail: String? = nil) {
+        self.init(
+            kind: kind,
+            connectionLabel: watch.connectionLabel,
+            gpuIndex: watch.gpuIndex,
+            pid: watch.pid,
+            user: watch.user,
+            processName: watch.displayProcessName,
+            detail: detail
+        )
+    }
+
+    var title: String {
+        kind.title
+    }
+
+    var subtitle: String {
+        var parts = [String]()
+
+        if let processName, !processName.isEmpty {
+            parts.append(processName)
+        }
+
+        if let user, !user.isEmpty {
+            parts.append(user)
+        }
+
+        if let pid {
+            parts.append("PID \(pid)")
+        }
+
+        if let gpuIndex {
+            parts.append("GPU \(gpuIndex)")
+        }
+
+        if let connectionLabel, !connectionLabel.isEmpty {
+            parts.append(connectionLabel)
+        }
+
+        if let detail, !detail.isEmpty {
+            parts.append(detail)
+        }
+
+        return parts.joined(separator: " · ")
+    }
+
+    static func recentEntries(from entries: [NotificationHistoryEntry], now: Date = Date(), within hours: Double = 24) -> [NotificationHistoryEntry] {
+        let cutoff = now.addingTimeInterval(-(hours * 3600))
+        return entries
+            .filter { $0.timestamp >= cutoff }
+            .sorted { $0.timestamp > $1.timestamp }
+    }
+}
+
 enum ProcessExitWatchEvaluator {
     static func exitedWatches(
         watches: [ProcessExitWatch],

@@ -11,6 +11,7 @@ final class GPUUsageStore: ObservableObject {
     @Published private(set) var notificationPermissionState: NotificationPermissionState = .unsupported
     @Published private(set) var loadingProcessDetailGPUIds = Set<Int>()
     @Published private(set) var watchedProcesses = [ProcessExitWatch]()
+    @Published private(set) var notificationHistory = [NotificationHistoryEntry]()
 
     private let fetcher: SSHMetricsFetcher
     private let notificationManager: ProcessExitNotificationManager
@@ -18,6 +19,7 @@ final class GPUUsageStore: ObservableObject {
     private let passwordStore = SSHPasswordStore()
     private let settingsKey = "gpu_usage.settings"
     private let watchedProcessesKey = "gpu_usage.process_exit_watches"
+    private let notificationHistoryKey = "gpu_usage.notification_history"
     private var pollingTask: Task<Void, Never>?
 
     init(
@@ -30,6 +32,7 @@ final class GPUUsageStore: ObservableObject {
         self.userDefaults = userDefaults
         self.settings = Self.loadSettings(from: userDefaults)
         self.watchedProcesses = Self.loadWatchedProcesses(from: userDefaults)
+        self.notificationHistory = Self.loadNotificationHistory(from: userDefaults)
         self.lastErrorMessage = self.settings.isConfigured ? nil : "SSH target를 입력하면 polling을 시작합니다."
 
         configurePolling(resetState: false)
@@ -103,6 +106,10 @@ final class GPUUsageStore: ObservableObject {
         watchedProcesses.count
     }
 
+    var recentNotificationHistory: [NotificationHistoryEntry] {
+        NotificationHistoryEntry.recentEntries(from: notificationHistory)
+    }
+
     func applySettings(_ newSettings: AppSettings, password: String = "") {
         let normalized = newSettings.normalized()
         let connectionChanged = normalized.connectionFingerprint != settings.connectionFingerprint
@@ -150,8 +157,10 @@ final class GPUUsageStore: ObservableObject {
         settings = AppSettings()
         snapshot = nil
         watchedProcesses = []
+        notificationHistory = []
         userDefaults.removeObject(forKey: settingsKey)
         userDefaults.removeObject(forKey: watchedProcessesKey)
+        userDefaults.removeObject(forKey: notificationHistoryKey)
         lastErrorMessage = "SSH target를 입력하면 polling을 시작합니다."
         noticeMessage = nil
         configurePolling(resetState: false)
@@ -195,8 +204,10 @@ final class GPUUsageStore: ObservableObject {
             switch state {
             case .authorized:
                 noticeMessage = "macOS 알림 권한을 허용했습니다."
+                appendNotificationHistory(NotificationHistoryEntry(kind: .permissionEnabled, connectionLabel: settings.sshTarget))
             case .denied:
                 noticeMessage = "알림 권한이 거부되었습니다. 시스템 설정에서 GPUUsage 알림을 허용하세요."
+                appendNotificationHistory(NotificationHistoryEntry(kind: .permissionDenied, connectionLabel: settings.sshTarget))
             case .notDetermined:
                 noticeMessage = "알림 권한 상태를 확인하지 못했습니다."
             case .unsupported:
@@ -219,6 +230,10 @@ final class GPUUsageStore: ObservableObject {
             noticeMessage = didSchedule
                 ? "1초 뒤 테스트 알림을 보냅니다."
                 : "테스트 알림 예약에 실패했습니다."
+
+            if didSchedule {
+                appendNotificationHistory(NotificationHistoryEntry(kind: .testNotificationScheduled, connectionLabel: settings.sshTarget))
+            }
         }
     }
 
@@ -296,6 +311,25 @@ final class GPUUsageStore: ObservableObject {
         } catch {
             lastErrorMessage = "감시 목록을 저장하지 못했습니다: \(error.localizedDescription)"
         }
+    }
+
+    private func persistNotificationHistory() {
+        do {
+            let data = try JSONEncoder().encode(notificationHistory)
+            userDefaults.set(data, forKey: notificationHistoryKey)
+        } catch {
+            lastErrorMessage = "알림 이력을 저장하지 못했습니다: \(error.localizedDescription)"
+        }
+    }
+
+    private func appendNotificationHistory(_ entry: NotificationHistoryEntry) {
+        let cutoff = Date().addingTimeInterval(-(7 * 24 * 3600))
+        notificationHistory.append(entry)
+        notificationHistory.removeAll { $0.timestamp < cutoff }
+        if notificationHistory.count > 200 {
+            notificationHistory = Array(notificationHistory.suffix(200))
+        }
+        persistNotificationHistory()
     }
 
     private func refreshProcessDetails(for gpuID: Int) async {
@@ -381,9 +415,10 @@ final class GPUUsageStore: ObservableObject {
 
     private func toggleExitWatchTask(for process: GPUProcessReading, on gpu: GPUReading) async {
         if let existingIndex = watchedProcesses.firstIndex(where: { $0.matches(process) && $0.connectionFingerprint == settings.connectionFingerprint }) {
-            watchedProcesses.remove(at: existingIndex)
+            let removedWatch = watchedProcesses.remove(at: existingIndex)
             persistWatchedProcesses()
             noticeMessage = "프로세스 종료 알림을 해제했습니다."
+            appendNotificationHistory(NotificationHistoryEntry(kind: .watchRemoved, watch: removedWatch))
             return
         }
 
@@ -400,7 +435,8 @@ final class GPUUsageStore: ObservableObject {
             return
         }
 
-        watchedProcesses.append(ProcessExitWatch(settings: settings, gpu: gpu, process: process))
+        let newWatch = ProcessExitWatch(settings: settings, gpu: gpu, process: process)
+        watchedProcesses.append(newWatch)
         watchedProcesses.sort { lhs, rhs in
             if lhs.gpuIndex == rhs.gpuIndex {
                 return lhs.pid < rhs.pid
@@ -410,6 +446,7 @@ final class GPUUsageStore: ObservableObject {
         }
         persistWatchedProcesses()
         noticeMessage = "프로세스 종료 알림을 등록했습니다."
+        appendNotificationHistory(NotificationHistoryEntry(kind: .watchAdded, watch: newWatch))
     }
 
     private func evaluateWatchedProcesses(using snapshot: GPUSnapshot, settings: AppSettings, password: String?) async {
@@ -442,6 +479,7 @@ final class GPUUsageStore: ObservableObject {
                 let didSchedule = await notificationManager.sendExitNotification(for: watch)
                 if didSchedule {
                     notifiedProcesses.append(watch.displayProcessName)
+                    appendNotificationHistory(NotificationHistoryEntry(kind: .exitNotificationScheduled, watch: watch))
                 }
             }
 
@@ -481,5 +519,16 @@ final class GPUUsageStore: ObservableObject {
         }
 
         return watches
+    }
+
+    private static func loadNotificationHistory(from userDefaults: UserDefaults) -> [NotificationHistoryEntry] {
+        guard
+            let data = userDefaults.data(forKey: "gpu_usage.notification_history"),
+            let history = try? JSONDecoder().decode([NotificationHistoryEntry].self, from: data)
+        else {
+            return []
+        }
+
+        return history
     }
 }
