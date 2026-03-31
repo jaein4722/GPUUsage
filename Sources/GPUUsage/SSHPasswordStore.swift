@@ -79,11 +79,12 @@ enum PasswordStoreError: LocalizedError {
     case osStatus(OSStatus)
 
     var errorDescription: String? {
+        let language = AppLocalizer.currentLanguage()
         switch self {
         case .invalidData:
-            return "저장된 SSH 비밀번호를 읽을 수 없습니다."
+            return language.text("Could not read the saved SSH password.", "저장된 SSH 비밀번호를 읽을 수 없습니다.")
         case .osStatus(let status):
-            return "키체인 작업이 실패했습니다. (OSStatus \(status))"
+            return language.text("The Keychain operation failed. (OSStatus \(status))", "키체인 작업이 실패했습니다. (OSStatus \(status))")
         }
     }
 }

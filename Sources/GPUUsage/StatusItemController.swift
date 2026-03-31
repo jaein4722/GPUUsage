@@ -4,9 +4,10 @@ import SwiftUI
 
 private struct StatusMenuContainerView: View {
     @ObservedObject var store: GPUUsageStore
+    let onContentHeightChange: (CGFloat) -> Void
 
     var body: some View {
-        StatusMenuView(store: store)
+        StatusMenuView(store: store, onContentHeightChange: onContentHeightChange)
             .preferredColorScheme(colorScheme)
     }
 
@@ -23,7 +24,7 @@ private struct StatusMenuContainerView: View {
 }
 
 @MainActor
-final class StatusItemController: NSObject {
+final class StatusItemController: NSObject, NSPopoverDelegate {
     var showSettingsAction: (() -> Void)?
 
     private let store: GPUUsageStore
@@ -32,8 +33,12 @@ final class StatusItemController: NSObject {
     private let popover = NSPopover()
     private let menu = NSMenu()
     private var cancellables = Set<AnyCancellable>()
-    private lazy var settingsMenuItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+    private var localOutsideClickMonitor: Any?
+    private var globalOutsideClickMonitor: Any?
+    private lazy var settingsMenuItem = NSMenuItem(title: "", action: #selector(openSettings), keyEquivalent: ",")
+    private lazy var quitMenuItem = NSMenuItem(title: "", action: #selector(quit), keyEquivalent: "q")
     private var settingsRelayHostingView: NSHostingView<SettingsActionRelayView>?
+    private var measuredContentHeight: CGFloat = 0
 
     init(store: GPUUsageStore, settingsOpenBridge: SettingsOpenBridge) {
         self.store = store
@@ -75,23 +80,29 @@ final class StatusItemController: NSObject {
     }
 
     private func configurePopover() {
-        popover.behavior = .transient
+        popover.behavior = .applicationDefined
         popover.animates = true
-        popover.contentViewController = NSHostingController(rootView: StatusMenuContainerView(store: store))
+        popover.delegate = self
+        popover.contentViewController = NSHostingController(
+            rootView: StatusMenuContainerView(
+                store: store,
+                onContentHeightChange: { [weak self] height in
+                    self?.updateMeasuredContentHeight(height)
+                }
+            )
+        )
         updatePopoverAppearance()
     }
 
     private func configureMenu() {
         settingsMenuItem.target = self
-
-        let quitMenuItem = NSMenuItem(title: "Quit GPUUsage", action: #selector(quit), keyEquivalent: "q")
         quitMenuItem.target = self
-
         menu.items = [
             settingsMenuItem,
             .separator(),
             quitMenuItem,
         ]
+        updateMenuTitles()
     }
 
     private func configureStatusItem() {
@@ -123,6 +134,15 @@ final class StatusItemController: NSObject {
                 self?.updateStatusItemAppearance()
                 self?.updatePopoverSize()
                 self?.updatePopoverAppearance()
+                self?.updatePopoverAutoCloseBehavior()
+                self?.updateMenuTitles()
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.closePopoverForOutsideInteraction()
             }
             .store(in: &cancellables)
     }
@@ -136,6 +156,7 @@ final class StatusItemController: NSObject {
             popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
             updatePopoverAppearance()
             popover.contentViewController?.view.window?.becomeKey()
+            updatePopoverAutoCloseBehavior()
         }
     }
 
@@ -154,17 +175,33 @@ final class StatusItemController: NSObject {
         button.title = store.menuBarTitle
         button.image = NSImage(
             systemSymbolName: store.menuBarSymbolName,
-            accessibilityDescription: "GPU Usage"
+            accessibilityDescription: store.settings.resolvedLanguage.text("GPU Usage", "GPU 사용량")
         )
         button.image?.isTemplate = true
         button.imagePosition = iconOnly ? .imageOnly : .imageLeft
         button.toolTip = store.menuBarToolTip
     }
 
+    private func updateMenuTitles() {
+        let language = store.settings.resolvedLanguage
+        settingsMenuItem.title = language.text("Settings…", "설정…")
+        quitMenuItem.title = language.text("Quit GPUUsage", "GPUUsage 종료")
+    }
+
     private func updatePopoverSize() {
         let gpuCount = max(store.snapshot?.gpus.count ?? 0, 1)
-        let height = min(CGFloat(820), max(260, CGFloat(110 + gpuCount * 58)))
+        let fallbackHeight = CGFloat(150 + min(gpuCount, 8) * 84)
+        let contentHeight = measuredContentHeight > 0 ? measuredContentHeight : fallbackHeight
+        let maxVisibleHeight = CGFloat(150 + 8 * 84)
+        let clampedHeight = gpuCount > 8 ? min(contentHeight, maxVisibleHeight) : contentHeight
+        let height = min(CGFloat(920), max(320, clampedHeight))
         popover.contentSize = NSSize(width: 500, height: height)
+    }
+
+    private func updateMeasuredContentHeight(_ height: CGFloat) {
+        guard abs(measuredContentHeight - height) > 1 else { return }
+        measuredContentHeight = height
+        updatePopoverSize()
     }
 
     private func updatePopoverAppearance() {
@@ -180,5 +217,77 @@ final class StatusItemController: NSObject {
         popover.appearance = appearance
         popover.contentViewController?.view.appearance = appearance
         popover.contentViewController?.view.window?.appearance = appearance
+    }
+
+    private func updatePopoverAutoCloseBehavior() {
+        guard popover.isShown else {
+            removeOutsideClickMonitor()
+            return
+        }
+
+        if store.settings.closesPopoverOnOutsideClick {
+            installOutsideClickMonitorIfNeeded()
+        } else {
+            removeOutsideClickMonitor()
+        }
+    }
+
+    private func installOutsideClickMonitorIfNeeded() {
+        if localOutsideClickMonitor == nil {
+            localOutsideClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
+                guard let self else { return event }
+                return self.handleLocalOutsideClick(event)
+            }
+        }
+
+        if globalOutsideClickMonitor == nil {
+            globalOutsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.closePopoverForOutsideInteraction()
+                }
+            }
+        }
+    }
+
+    private func removeOutsideClickMonitor() {
+        if let localOutsideClickMonitor {
+            NSEvent.removeMonitor(localOutsideClickMonitor)
+            self.localOutsideClickMonitor = nil
+        }
+
+        if let globalOutsideClickMonitor {
+            NSEvent.removeMonitor(globalOutsideClickMonitor)
+            self.globalOutsideClickMonitor = nil
+        }
+    }
+
+    private func handleLocalOutsideClick(_ event: NSEvent) -> NSEvent? {
+        guard popover.isShown, store.settings.closesPopoverOnOutsideClick else {
+            return event
+        }
+
+        if isClickInsidePopover(event) || isClickOnStatusButton(event) {
+            return event
+        }
+
+        popover.performClose(nil)
+        return event
+    }
+
+    private func isClickInsidePopover(_ event: NSEvent) -> Bool {
+        event.window === popover.contentViewController?.view.window
+    }
+
+    private func isClickOnStatusButton(_ event: NSEvent) -> Bool {
+        event.window === statusItem.button?.window
+    }
+
+    private func closePopoverForOutsideInteraction() {
+        guard popover.isShown, store.settings.closesPopoverOnOutsideClick else { return }
+        popover.performClose(nil)
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        removeOutsideClickMonitor()
     }
 }

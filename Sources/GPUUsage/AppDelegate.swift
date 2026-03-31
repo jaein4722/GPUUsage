@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import UserNotifications
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -13,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         bindAppearance()
         bindActivationPolicy()
         applyAppearance(for: store.settings.appearanceMode)
+        configureNotificationPresentation()
 
         let statusItemController = StatusItemController(store: store, settingsOpenBridge: settingsOpenBridge)
         statusItemController.showSettingsAction = { [weak self] in
@@ -69,6 +71,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func configureNotificationPresentation() {
+        guard Bundle.main.bundleURL.pathExtension == "app", Bundle.main.bundleIdentifier != nil else {
+            return
+        }
+
+        UNUserNotificationCenter.current().delegate = self
+    }
+
     private func showSettingsWindow() {
         NSApplication.shared.activate(ignoringOtherApps: true)
 
@@ -80,5 +90,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
             _ = NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
         }
+    }
+}
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .list, .sound]
     }
 }

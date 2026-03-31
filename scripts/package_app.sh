@@ -2,15 +2,17 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_NAME="GPUUsage"
+APP_NAME="${APP_NAME:-GPUUsage}"
 PRODUCT_NAME="GPUUsage"
-VOLUME_NAME="GPUUsage"
+VOLUME_NAME="${VOLUME_NAME:-$APP_NAME}"
 
 VERSION="${VERSION:-0.2.4}"
 BUILD_NUMBER="${BUILD_NUMBER:-1}"
 BUNDLE_ID="${BUNDLE_ID:-com.leejaein.GPUUsage}"
 MIN_SYSTEM_VERSION="${MIN_SYSTEM_VERSION:-14.0}"
 CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
+BUILD_CONFIGURATION="${BUILD_CONFIGURATION:-release}"
+SKIP_DMG="${SKIP_DMG:-0}"
 NOTARIZE="${NOTARIZE:-0}"
 KEYCHAIN_PROFILE="${KEYCHAIN_PROFILE:-}"
 APPLE_ID="${APPLE_ID:-}"
@@ -27,7 +29,7 @@ ICON_NAME="AppIcon"
 ICONSET_DIR="$DIST_DIR/.${ICON_NAME}.iconset"
 ICON_NORMALIZED_PATH="$DIST_DIR/.${ICON_NAME}-1024.png"
 ICON_RESOURCE_PATH="$APP_PATH/Contents/Resources/${ICON_NAME}.icns"
-BIN_PATH="$(swift build -c release --show-bin-path)"
+BIN_PATH="$(swift build -c "$BUILD_CONFIGURATION" --show-bin-path)"
 EXECUTABLE_PATH="$BIN_PATH/$PRODUCT_NAME"
 INFO_PLIST_PATH="$APP_PATH/Contents/Info.plist"
 
@@ -63,8 +65,8 @@ generate_app_icon() {
 rm -rf "$APP_PATH" "$DMG_PATH" "$NOTARIZE_ZIP_PATH" "$DMG_STAGING_DIR"
 mkdir -p "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources"
 
-echo "Building release binary..."
-swift build -c release --product "$PRODUCT_NAME"
+echo "Building $BUILD_CONFIGURATION binary..."
+swift build -c "$BUILD_CONFIGURATION" --product "$PRODUCT_NAME"
 
 if [[ ! -x "$EXECUTABLE_PATH" ]]; then
   echo "Expected executable not found at $EXECUTABLE_PATH" >&2
@@ -169,6 +171,13 @@ if [[ "$NOTARIZE" == "1" ]]; then
   spctl --assess --type exec -vv "$APP_PATH"
 fi
 
+echo "App bundle: $APP_PATH"
+
+if [[ "$SKIP_DMG" == "1" ]]; then
+  echo "Skipping DMG creation."
+  exit 0
+fi
+
 echo "Creating DMG archive..."
 mkdir -p "$DMG_STAGING_DIR"
 cp -R "$APP_PATH" "$DMG_STAGING_DIR/"
@@ -217,5 +226,4 @@ if [[ "$NOTARIZE" == "1" ]]; then
   spctl --assess --type open -vv "$DMG_PATH"
 fi
 
-echo "App bundle: $APP_PATH"
 echo "DMG archive: $DMG_PATH"

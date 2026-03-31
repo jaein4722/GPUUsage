@@ -8,33 +8,45 @@ enum MenuBarDisplayMode: String, Codable, CaseIterable, Equatable, Hashable, Ide
 
     var id: String { rawValue }
 
-    var title: String {
+    func title(in language: AppInterfaceLanguage) -> String {
         switch self {
         case .averageAndBusy:
-            return "Average + Busy"
+            return language.text("Average + Busy", "평균 + 사용중")
         case .averageOnly:
-            return "Average Util"
+            return language.text("Average Util", "평균 사용률")
         case .busyOnly:
-            return "Busy Count"
+            return language.text("Busy Count", "사용중 개수")
         case .iconOnly:
-            return "Icon Only"
+            return language.text("Icon Only", "아이콘만")
         }
     }
 
-    var detailText: String {
+    func detailText(in language: AppInterfaceLanguage) -> String {
         switch self {
         case .averageAndBusy:
-            return "평균 GPU 사용률과 busy GPU 수를 함께 표시합니다."
+            return language.text(
+                "Show both average GPU utilization and busy GPU count.",
+                "평균 GPU 사용률과 busy GPU 수를 함께 표시합니다."
+            )
         case .averageOnly:
-            return "평균 GPU 사용률만 메뉴바에 표시합니다."
+            return language.text(
+                "Show only average GPU utilization in the menu bar.",
+                "평균 GPU 사용률만 메뉴바에 표시합니다."
+            )
         case .busyOnly:
-            return "busy GPU 개수만 메뉴바에 표시합니다."
+            return language.text(
+                "Show only the busy GPU count in the menu bar.",
+                "busy GPU 개수만 메뉴바에 표시합니다."
+            )
         case .iconOnly:
-            return "텍스트 없이 아이콘만 표시합니다. 상태 이상은 아이콘 색/심볼로 구분합니다."
+            return language.text(
+                "Show only the icon without text. Issues are indicated by the icon color and symbol.",
+                "텍스트 없이 아이콘만 표시합니다. 상태 이상은 아이콘 색/심볼로 구분합니다."
+            )
         }
     }
 
-    func titleText(for snapshot: GPUSnapshot) -> String {
+    func titleText(for snapshot: GPUSnapshot, language: AppInterfaceLanguage) -> String {
         switch self {
         case .averageAndBusy:
             return "GPU \(snapshot.averageUtilization)% · \(snapshot.busyCount)/\(snapshot.gpus.count)"
@@ -55,25 +67,34 @@ enum AppAppearanceMode: String, Codable, CaseIterable, Equatable, Hashable, Iden
 
     var id: String { rawValue }
 
-    var title: String {
+    func title(in language: AppInterfaceLanguage) -> String {
         switch self {
         case .system:
-            return "System"
+            return language.text("System", "시스템")
         case .light:
-            return "Light"
+            return language.text("Light", "라이트")
         case .dark:
-            return "Dark"
+            return language.text("Dark", "다크")
         }
     }
 
-    var detailText: String {
+    func detailText(in language: AppInterfaceLanguage) -> String {
         switch self {
         case .system:
-            return "macOS 시스템 설정을 그대로 따릅니다."
+            return language.text(
+                "Follow the macOS system appearance.",
+                "macOS 시스템 설정을 그대로 따릅니다."
+            )
         case .light:
-            return "GPUUsage를 항상 라이트 모드로 표시합니다."
+            return language.text(
+                "Always show GPUUsage in light mode.",
+                "GPUUsage를 항상 라이트 모드로 표시합니다."
+            )
         case .dark:
-            return "GPUUsage를 항상 다크 모드로 표시합니다."
+            return language.text(
+                "Always show GPUUsage in dark mode.",
+                "GPUUsage를 항상 다크 모드로 표시합니다."
+            )
         }
     }
 }
@@ -84,21 +105,72 @@ enum SSHAuthenticationMode: String, Codable, CaseIterable, Equatable, Hashable, 
 
     var id: String { rawValue }
 
-    var title: String {
+    func title(in language: AppInterfaceLanguage) -> String {
         switch self {
         case .keyBased:
-            return "Key-based"
+            return language.text("Key-based", "키 기반")
         case .passwordBased:
-            return "Password-based"
+            return language.text("Password-based", "비밀번호")
         }
     }
 
-    var detailText: String {
+    func detailText(in language: AppInterfaceLanguage) -> String {
         switch self {
         case .keyBased:
-            return "SSH key와 ssh-agent를 사용합니다. background polling 중 Keychain을 읽지 않습니다."
+            return language.text(
+                "Use SSH keys and ssh-agent. The app does not read Keychain during background polling.",
+                "SSH key와 ssh-agent를 사용합니다. background polling 중 Keychain을 읽지 않습니다."
+            )
         case .passwordBased:
-            return "macOS Keychain에 저장된 SSH 비밀번호를 사용합니다."
+            return language.text(
+                "Use the SSH password stored in the macOS Keychain.",
+                "macOS Keychain에 저장된 SSH 비밀번호를 사용합니다."
+            )
+        }
+    }
+}
+
+enum NotificationPermissionState: Equatable, Sendable {
+    case unsupported
+    case notDetermined
+    case denied
+    case authorized
+
+    func title(in language: AppInterfaceLanguage) -> String {
+        switch self {
+        case .unsupported:
+            return language.text("Unavailable", "사용 불가")
+        case .notDetermined:
+            return language.text("Not enabled", "비활성화")
+        case .denied:
+            return language.text("Denied", "거부됨")
+        case .authorized:
+            return language.text("Enabled", "활성화")
+        }
+    }
+
+    func detailText(in language: AppInterfaceLanguage) -> String {
+        switch self {
+        case .unsupported:
+            return language.text(
+                "macOS notifications are unavailable when running with `swift run`.",
+                "개발용 `swift run` 실행에서는 macOS 알림을 사용할 수 없습니다."
+            )
+        case .notDetermined:
+            return language.text(
+                "Allow macOS notification permission to use process exit alerts.",
+                "프로세스 종료 알림을 쓰려면 macOS 알림 권한을 허용해야 합니다."
+            )
+        case .denied:
+            return language.text(
+                "GPUUsage notifications are denied in macOS. Enable them in System Settings.",
+                "macOS에서 GPUUsage 알림 권한이 거부된 상태입니다. 시스템 설정에서 허용해야 합니다."
+            )
+        case .authorized:
+            return language.text(
+                "Notifications are ready for process exit and GPU idle alerts.",
+                "프로세스 종료 알림과 GPU idle 알림을 보낼 준비가 되어 있습니다."
+            )
         }
     }
 }
@@ -114,8 +186,12 @@ struct AppSettings: Codable, Equatable, Sendable {
     var pollIntervalSeconds: Int = 10
     var remoteCommand: String = Self.defaultRemoteCommand
     var menuBarDisplayMode: MenuBarDisplayMode = .averageAndBusy
+    var languagePreference: AppLanguagePreference = .system
     var appearanceMode: AppAppearanceMode = .system
     var showsDockIcon: Bool = false
+    var closesPopoverOnOutsideClick: Bool = true
+    var idleNotificationSeconds: Int = 300
+    var idleMemoryThresholdMB: Int = 50
 
     init(
         sshTarget: String = "",
@@ -125,8 +201,12 @@ struct AppSettings: Codable, Equatable, Sendable {
         pollIntervalSeconds: Int = 10,
         remoteCommand: String = Self.defaultRemoteCommand,
         menuBarDisplayMode: MenuBarDisplayMode = .averageAndBusy,
+        languagePreference: AppLanguagePreference = .system,
         appearanceMode: AppAppearanceMode = .system,
-        showsDockIcon: Bool = false
+        showsDockIcon: Bool = false,
+        closesPopoverOnOutsideClick: Bool = true,
+        idleNotificationSeconds: Int = 300,
+        idleMemoryThresholdMB: Int = 50
     ) {
         self.sshTarget = sshTarget
         self.sshPort = sshPort
@@ -135,8 +215,12 @@ struct AppSettings: Codable, Equatable, Sendable {
         self.pollIntervalSeconds = pollIntervalSeconds
         self.remoteCommand = remoteCommand
         self.menuBarDisplayMode = menuBarDisplayMode
+        self.languagePreference = languagePreference
         self.appearanceMode = appearanceMode
         self.showsDockIcon = showsDockIcon
+        self.closesPopoverOnOutsideClick = closesPopoverOnOutsideClick
+        self.idleNotificationSeconds = idleNotificationSeconds
+        self.idleMemoryThresholdMB = idleMemoryThresholdMB
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -147,8 +231,12 @@ struct AppSettings: Codable, Equatable, Sendable {
         case pollIntervalSeconds
         case remoteCommand
         case menuBarDisplayMode
+        case languagePreference
         case appearanceMode
         case showsDockIcon
+        case closesPopoverOnOutsideClick
+        case idleNotificationSeconds
+        case idleMemoryThresholdMB
     }
 
     init(from decoder: Decoder) throws {
@@ -161,8 +249,12 @@ struct AppSettings: Codable, Equatable, Sendable {
             pollIntervalSeconds: try container.decodeIfPresent(Int.self, forKey: .pollIntervalSeconds) ?? 10,
             remoteCommand: try container.decodeIfPresent(String.self, forKey: .remoteCommand) ?? Self.defaultRemoteCommand,
             menuBarDisplayMode: try container.decodeIfPresent(MenuBarDisplayMode.self, forKey: .menuBarDisplayMode) ?? .averageAndBusy,
+            languagePreference: try container.decodeIfPresent(AppLanguagePreference.self, forKey: .languagePreference) ?? .system,
             appearanceMode: try container.decodeIfPresent(AppAppearanceMode.self, forKey: .appearanceMode) ?? .system,
-            showsDockIcon: try container.decodeIfPresent(Bool.self, forKey: .showsDockIcon) ?? false
+            showsDockIcon: try container.decodeIfPresent(Bool.self, forKey: .showsDockIcon) ?? false,
+            closesPopoverOnOutsideClick: try container.decodeIfPresent(Bool.self, forKey: .closesPopoverOnOutsideClick) ?? true,
+            idleNotificationSeconds: try container.decodeIfPresent(Int.self, forKey: .idleNotificationSeconds) ?? 300,
+            idleMemoryThresholdMB: try container.decodeIfPresent(Int.self, forKey: .idleMemoryThresholdMB) ?? 50
         )
     }
 
@@ -175,7 +267,9 @@ struct AppSettings: Codable, Equatable, Sendable {
         copy.sshTarget = sshTarget.trimmingCharacters(in: .whitespacesAndNewlines)
         copy.sshPort = sshPort.trimmingCharacters(in: .whitespacesAndNewlines)
         copy.sshIdentityFilePath = NSString(string: sshIdentityFilePath.trimmingCharacters(in: .whitespacesAndNewlines)).expandingTildeInPath
-        copy.pollIntervalSeconds = min(max(pollIntervalSeconds, 3), 300)
+        copy.pollIntervalSeconds = min(max(pollIntervalSeconds, 1), 300)
+        copy.idleNotificationSeconds = min(max(idleNotificationSeconds, 1), 3_600)
+        copy.idleMemoryThresholdMB = min(max(idleMemoryThresholdMB, 0), 10_240)
 
         let trimmedCommand = remoteCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedCommand.isEmpty || trimmedCommand == Self.legacyDefaultRemoteCommand {
@@ -193,6 +287,15 @@ struct AppSettings: Codable, Equatable, Sendable {
         }
 
         return port
+    }
+
+    var connectionFingerprint: String {
+        [
+            sshTarget,
+            sshPort,
+            sshIdentityFilePath,
+            sshAuthenticationMode.rawValue,
+        ].joined(separator: "|")
     }
 }
 
@@ -235,6 +338,10 @@ struct GPUReading: Identifiable, Equatable, Sendable {
 
     var processSummary: String {
         processes.isEmpty ? "No active processes" : "\(processes.count) active process\(processes.count == 1 ? "" : "es")"
+    }
+
+    func isIdle(memoryThresholdMB: Int) -> Bool {
+        utilization == 0 && memoryUsedMB <= memoryThresholdMB
     }
 }
 
@@ -300,5 +407,292 @@ struct GPUProcessReading: Identifiable, Equatable, Sendable {
         let normalizedProcessName = processName.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedCommand = commandSummary.trimmingCharacters(in: .whitespacesAndNewlines)
         return !normalizedCommand.isEmpty && normalizedProcessName != normalizedCommand
+    }
+}
+
+struct RemoteProcessStatus: Equatable, Sendable {
+    let pid: Int
+    let user: String
+    let commandLine: String?
+}
+
+struct ProcessExitWatch: Codable, Identifiable, Equatable, Sendable {
+    let connectionFingerprint: String
+    let connectionLabel: String
+    let gpuUUID: String
+    let gpuIndex: Int
+    let gpuName: String
+    let pid: Int
+    let processName: String
+    let usedGPUMemoryMB: Int
+    let user: String?
+    let commandLine: String?
+    let createdAt: Date
+
+    init(settings: AppSettings, gpu: GPUReading, process: GPUProcessReading, createdAt: Date = Date()) {
+        self.connectionFingerprint = settings.connectionFingerprint
+        self.connectionLabel = settings.sshTarget
+        self.gpuUUID = process.gpuUUID
+        self.gpuIndex = gpu.index
+        self.gpuName = gpu.name
+        self.pid = process.pid
+        self.processName = process.processName
+        self.usedGPUMemoryMB = process.usedGPUMemoryMB
+        self.user = process.user
+        self.commandLine = process.commandLine
+        self.createdAt = createdAt
+    }
+
+    var id: String {
+        "\(connectionFingerprint):\(gpuUUID):\(pid):\(processName)"
+    }
+
+    var displayProcessName: String {
+        let trimmedName = processName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedName.isEmpty {
+            return trimmedName
+        }
+
+        let trimmedCommand = commandLine?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !trimmedCommand.isEmpty {
+            return trimmedCommand
+        }
+
+        return "PID \(pid)"
+    }
+
+    func subtitle(language: AppInterfaceLanguage) -> String {
+        var parts = [
+            connectionLabel,
+            "GPU \(gpuIndex)",
+            language.text("PID \(pid)", "PID \(pid)")
+        ]
+        if let user, !user.isEmpty {
+            parts.append(user)
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    func matches(_ process: GPUProcessReading) -> Bool {
+        process.gpuUUID == gpuUUID && process.pid == pid && process.processName == processName
+    }
+
+    func matches(_ status: RemoteProcessStatus) -> Bool {
+        guard status.pid == pid else { return false }
+
+        if let user, !user.isEmpty, user != status.user {
+            return false
+        }
+
+        let normalizedCommand = normalized(commandLine)
+        if !normalizedCommand.isEmpty {
+            return normalizedCommand == normalized(status.commandLine)
+        }
+
+        return true
+    }
+
+    private func normalized(_ string: String?) -> String {
+        string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+}
+
+struct GPUIdleWatch: Codable, Identifiable, Equatable, Sendable {
+    let connectionFingerprint: String
+    let connectionLabel: String
+    let gpuUUID: String?
+    let gpuIndex: Int
+    let gpuName: String
+    let createdAt: Date
+
+    init(settings: AppSettings, gpu: GPUReading, createdAt: Date = Date()) {
+        self.connectionFingerprint = settings.connectionFingerprint
+        self.connectionLabel = settings.sshTarget
+        self.gpuUUID = gpu.uuid
+        self.gpuIndex = gpu.index
+        self.gpuName = gpu.name
+        self.createdAt = createdAt
+    }
+
+    var id: String {
+        let identifier = gpuUUID ?? "gpu-\(gpuIndex)"
+        return "\(connectionFingerprint):\(identifier)"
+    }
+
+    var title: String {
+        "GPU \(gpuIndex)"
+    }
+
+    var subtitle: String {
+        [gpuName, connectionLabel]
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+    }
+
+    func matches(_ gpu: GPUReading) -> Bool {
+        if let gpuUUID, let currentUUID = gpu.uuid {
+            return gpuUUID == currentUUID
+        }
+
+        return gpu.index == gpuIndex
+    }
+}
+
+enum NotificationHistoryKind: String, Codable, Equatable, Sendable {
+    case permissionEnabled
+    case permissionDenied
+    case watchAdded
+    case watchRemoved
+    case idleWatchAdded
+    case idleWatchRemoved
+    case testNotificationScheduled
+    case exitNotificationScheduled
+    case idleNotificationScheduled
+
+    func title(in language: AppInterfaceLanguage) -> String {
+        switch self {
+        case .permissionEnabled:
+            return language.text("Permission enabled", "권한 허용")
+        case .permissionDenied:
+            return language.text("Permission denied", "권한 거부")
+        case .watchAdded:
+            return language.text("Process watch enabled", "프로세스 watch 등록")
+        case .watchRemoved:
+            return language.text("Process watch removed", "프로세스 watch 해제")
+        case .idleWatchAdded:
+            return language.text("GPU idle watch enabled", "GPU idle watch 등록")
+        case .idleWatchRemoved:
+            return language.text("GPU idle watch removed", "GPU idle watch 해제")
+        case .testNotificationScheduled:
+            return language.text("Test notification sent", "테스트 알림 전송")
+        case .exitNotificationScheduled:
+            return language.text("Process exit notification sent", "프로세스 종료 알림 전송")
+        case .idleNotificationScheduled:
+            return language.text("GPU idle notification sent", "GPU idle 알림 전송")
+        }
+    }
+}
+
+struct NotificationHistoryEntry: Codable, Identifiable, Equatable, Sendable {
+    let id: UUID
+    let timestamp: Date
+    let kind: NotificationHistoryKind
+    let connectionLabel: String?
+    let gpuIndex: Int?
+    let pid: Int?
+    let user: String?
+    let processName: String?
+    let detail: String?
+
+    init(
+        id: UUID = UUID(),
+        timestamp: Date = Date(),
+        kind: NotificationHistoryKind,
+        connectionLabel: String? = nil,
+        gpuIndex: Int? = nil,
+        pid: Int? = nil,
+        user: String? = nil,
+        processName: String? = nil,
+        detail: String? = nil
+    ) {
+        self.id = id
+        self.timestamp = timestamp
+        self.kind = kind
+        self.connectionLabel = connectionLabel
+        self.gpuIndex = gpuIndex
+        self.pid = pid
+        self.user = user
+        self.processName = processName
+        self.detail = detail
+    }
+
+    init(kind: NotificationHistoryKind, watch: ProcessExitWatch, detail: String? = nil) {
+        self.init(
+            kind: kind,
+            connectionLabel: watch.connectionLabel,
+            gpuIndex: watch.gpuIndex,
+            pid: watch.pid,
+            user: watch.user,
+            processName: watch.displayProcessName,
+            detail: detail
+        )
+    }
+
+    init(kind: NotificationHistoryKind, idleWatch: GPUIdleWatch, detail: String? = nil) {
+        self.init(
+            kind: kind,
+            connectionLabel: idleWatch.connectionLabel,
+            gpuIndex: idleWatch.gpuIndex,
+            processName: idleWatch.title,
+            detail: detail ?? idleWatch.gpuName
+        )
+    }
+
+    func title(in language: AppInterfaceLanguage) -> String {
+        kind.title(in: language)
+    }
+
+    var subtitle: String {
+        var parts = [String]()
+
+        if let processName, !processName.isEmpty {
+            parts.append(processName)
+        }
+
+        if let user, !user.isEmpty {
+            parts.append(user)
+        }
+
+        if let pid {
+            parts.append("PID \(pid)")
+        }
+
+        if let gpuIndex {
+            parts.append("GPU \(gpuIndex)")
+        }
+
+        if let connectionLabel, !connectionLabel.isEmpty {
+            parts.append(connectionLabel)
+        }
+
+        if let detail, !detail.isEmpty {
+            parts.append(detail)
+        }
+
+        return parts.joined(separator: " · ")
+    }
+
+    static func recentEntries(from entries: [NotificationHistoryEntry], now: Date = Date(), within hours: Double = 24) -> [NotificationHistoryEntry] {
+        let cutoff = now.addingTimeInterval(-(hours * 3600))
+        return entries
+            .filter { $0.timestamp >= cutoff }
+            .sorted { $0.timestamp > $1.timestamp }
+    }
+}
+
+enum ProcessExitWatchEvaluator {
+    static func exitedWatches(
+        watches: [ProcessExitWatch],
+        visibleProcesses: [GPUProcessReading],
+        remoteStatuses: [RemoteProcessStatus]
+    ) -> [ProcessExitWatch] {
+        let visibleWatchIDs = Set(
+            watches.compactMap { watch in
+                visibleProcesses.contains(where: watch.matches(_:)) ? watch.id : nil
+            }
+        )
+        let statusesByPID = Dictionary(uniqueKeysWithValues: remoteStatuses.map { ($0.pid, $0) })
+
+        return watches.filter { watch in
+            guard !visibleWatchIDs.contains(watch.id) else {
+                return false
+            }
+
+            guard let remoteStatus = statusesByPID[watch.pid] else {
+                return true
+            }
+
+            return !watch.matches(remoteStatus)
+        }
     }
 }

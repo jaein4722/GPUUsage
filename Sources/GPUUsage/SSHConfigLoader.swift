@@ -17,15 +17,15 @@ struct SSHConfigHost: Identifiable, Equatable {
         return alias
     }
 
-    var detailSummary: String {
+    func detailSummary(in language: AppInterfaceLanguage) -> String {
         var parts = [String]()
 
         if let user, !user.isEmpty {
-            parts.append("User \(user)")
+            parts.append(language.text("User \(user)", "사용자 \(user)"))
         }
 
         if let hostName, !hostName.isEmpty {
-            parts.append("Host \(hostName)")
+            parts.append(language.text("Host \(hostName)", "호스트 \(hostName)"))
         }
 
         if let port, !port.isEmpty {
@@ -33,7 +33,7 @@ struct SSHConfigHost: Identifiable, Equatable {
         }
 
         if let identityFilePath, !identityFilePath.isEmpty {
-            parts.append("Identity \(identityFilePath)")
+            parts.append(language.text("Identity \(identityFilePath)", "Identity \(identityFilePath)"))
         }
 
         return parts.joined(separator: " · ")

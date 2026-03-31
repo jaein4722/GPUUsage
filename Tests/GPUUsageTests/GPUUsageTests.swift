@@ -126,8 +126,12 @@ import Testing
     #expect(settings.sshTarget == "gpu-prod")
     #expect(settings.sshAuthenticationMode == .keyBased)
     #expect(settings.menuBarDisplayMode == .averageAndBusy)
+    #expect(settings.languagePreference == .system)
     #expect(settings.appearanceMode == .system)
     #expect(settings.showsDockIcon == false)
+    #expect(settings.closesPopoverOnOutsideClick == true)
+    #expect(settings.idleNotificationSeconds == 300)
+    #expect(settings.idleMemoryThresholdMB == 50)
 }
 
 @Test func menuBarDisplayModesBuildExpectedSummary() {
@@ -139,8 +143,155 @@ import Testing
         ]
     )
 
-    #expect(MenuBarDisplayMode.averageAndBusy.titleText(for: snapshot) == "GPU 50% · 2/2")
-    #expect(MenuBarDisplayMode.averageOnly.titleText(for: snapshot) == "GPU 50%")
-    #expect(MenuBarDisplayMode.busyOnly.titleText(for: snapshot) == "GPU 2/2")
-    #expect(MenuBarDisplayMode.iconOnly.titleText(for: snapshot).isEmpty)
+    #expect(MenuBarDisplayMode.averageAndBusy.titleText(for: snapshot, language: .english) == "GPU 50% · 2/2")
+    #expect(MenuBarDisplayMode.averageOnly.titleText(for: snapshot, language: .english) == "GPU 50%")
+    #expect(MenuBarDisplayMode.busyOnly.titleText(for: snapshot, language: .english) == "GPU 2/2")
+    #expect(MenuBarDisplayMode.iconOnly.titleText(for: snapshot, language: .english).isEmpty)
+}
+
+@Test func exitWatchDoesNotFireWhileProcessIsStillVisible() {
+    let settings = AppSettings(sshTarget: "gpu-prod")
+    let gpu = GPUReading(index: 0, name: "A6000", uuid: "GPU-1", utilization: 90, memoryUsedMB: 10, memoryTotalMB: 20, temperatureCelsius: 60, processes: [])
+    let process = GPUProcessReading(gpuUUID: "GPU-1", pid: 1234, processName: "python", usedGPUMemoryMB: 8192, user: "alice", commandLine: "python train.py")
+    let watch = ProcessExitWatch(settings: settings, gpu: gpu, process: process)
+
+    let exited = ProcessExitWatchEvaluator.exitedWatches(
+        watches: [watch],
+        visibleProcesses: [process],
+        remoteStatuses: []
+    )
+
+    #expect(exited.isEmpty)
+}
+
+@Test func exitWatchFiresWhenProcessDisappearsFromGPUAndPS() {
+    let settings = AppSettings(sshTarget: "gpu-prod")
+    let gpu = GPUReading(index: 0, name: "A6000", uuid: "GPU-1", utilization: 90, memoryUsedMB: 10, memoryTotalMB: 20, temperatureCelsius: 60, processes: [])
+    let process = GPUProcessReading(gpuUUID: "GPU-1", pid: 1234, processName: "python", usedGPUMemoryMB: 8192, user: "alice", commandLine: "python train.py")
+    let watch = ProcessExitWatch(settings: settings, gpu: gpu, process: process)
+
+    let exited = ProcessExitWatchEvaluator.exitedWatches(
+        watches: [watch],
+        visibleProcesses: [],
+        remoteStatuses: []
+    )
+
+    #expect(exited == [watch])
+}
+
+@Test func exitWatchFiresWhenPIDIsReusedByDifferentCommand() {
+    let settings = AppSettings(sshTarget: "gpu-prod")
+    let gpu = GPUReading(index: 0, name: "A6000", uuid: "GPU-1", utilization: 90, memoryUsedMB: 10, memoryTotalMB: 20, temperatureCelsius: 60, processes: [])
+    let process = GPUProcessReading(gpuUUID: "GPU-1", pid: 1234, processName: "python", usedGPUMemoryMB: 8192, user: "alice", commandLine: "python train.py")
+    let watch = ProcessExitWatch(settings: settings, gpu: gpu, process: process)
+    let reusedPID = RemoteProcessStatus(pid: 1234, user: "alice", commandLine: "python serve.py")
+
+    let exited = ProcessExitWatchEvaluator.exitedWatches(
+        watches: [watch],
+        visibleProcesses: [],
+        remoteStatuses: [reusedPID]
+    )
+
+    #expect(exited == [watch])
+}
+
+@Test func notificationHistoryFiltersToRecent24Hours() {
+    let now = Date()
+    let recent = NotificationHistoryEntry(
+        timestamp: now.addingTimeInterval(-(2 * 3600)),
+        kind: .watchAdded,
+        connectionLabel: "gpu-prod",
+        gpuIndex: 0,
+        pid: 1234,
+        user: "alice",
+        processName: "python"
+    )
+    let old = NotificationHistoryEntry(
+        timestamp: now.addingTimeInterval(-(30 * 3600)),
+        kind: .watchRemoved,
+        connectionLabel: "gpu-prod",
+        gpuIndex: 0,
+        pid: 1234,
+        user: "alice",
+        processName: "python"
+    )
+
+    let filtered = NotificationHistoryEntry.recentEntries(from: [old, recent], now: now)
+
+    #expect(filtered == [recent])
+}
+
+@Test func normalizesIdleAlertThresholds() {
+    let lowerBoundSettings = AppSettings(
+        pollIntervalSeconds: 0,
+        idleNotificationSeconds: 0,
+        idleMemoryThresholdMB: 50_000
+    ).normalized()
+    let upperBoundSettings = AppSettings(
+        pollIntervalSeconds: 500,
+        idleNotificationSeconds: 5_000,
+        idleMemoryThresholdMB: 12_000
+    ).normalized()
+
+    #expect(lowerBoundSettings.pollIntervalSeconds == 1)
+    #expect(lowerBoundSettings.idleNotificationSeconds == 1)
+    #expect(lowerBoundSettings.idleMemoryThresholdMB == 10_240)
+    #expect(upperBoundSettings.pollIntervalSeconds == 300)
+    #expect(upperBoundSettings.idleNotificationSeconds == 3_600)
+    #expect(upperBoundSettings.idleMemoryThresholdMB == 10_240)
+}
+
+@Test func gpuIdleWatchMatchesByUUIDOrIndex() {
+    let settings = AppSettings(sshTarget: "gpu-prod")
+    let gpuWithUUID = GPUReading(
+        index: 7,
+        name: "A6000",
+        uuid: "GPU-777",
+        utilization: 0,
+        memoryUsedMB: 12,
+        memoryTotalMB: 48_068,
+        temperatureCelsius: 31,
+        processes: []
+    )
+    let gpuWithoutUUID = GPUReading(
+        index: 7,
+        name: "A6000",
+        uuid: nil,
+        utilization: 0,
+        memoryUsedMB: 12,
+        memoryTotalMB: 48_068,
+        temperatureCelsius: 31,
+        processes: []
+    )
+    let watch = GPUIdleWatch(settings: settings, gpu: gpuWithUUID)
+
+    #expect(watch.matches(gpuWithUUID))
+    #expect(watch.matches(gpuWithoutUUID))
+}
+
+@Test func gpuReadingIdleCheckUsesUtilAndMemoryThreshold() {
+    let idleGPU = GPUReading(
+        index: 0,
+        name: "A6000",
+        uuid: "GPU-1",
+        utilization: 0,
+        memoryUsedMB: 49,
+        memoryTotalMB: 48_068,
+        temperatureCelsius: 31,
+        processes: []
+    )
+    let busyGPU = GPUReading(
+        index: 0,
+        name: "A6000",
+        uuid: "GPU-1",
+        utilization: 2,
+        memoryUsedMB: 49,
+        memoryTotalMB: 48_068,
+        temperatureCelsius: 31,
+        processes: []
+    )
+
+    #expect(idleGPU.isIdle(memoryThresholdMB: 50))
+    #expect(!idleGPU.isIdle(memoryThresholdMB: 10))
+    #expect(!busyGPU.isIdle(memoryThresholdMB: 50))
 }

@@ -15,21 +15,22 @@ struct SSHMetricsFetcher: Sendable {
         case missingTarget
 
         var errorDescription: String? {
+            let language = AppLocalizer.currentLanguage()
             switch self {
             case .commandFailed(_, let message):
-                return message.isEmpty ? "ssh command failed." : message
+                return message.isEmpty ? language.text("ssh command failed.", "ssh 명령이 실패했습니다.") : message
             case .emptyResponse:
-                return "nvidia-smi output was empty."
+                return language.text("nvidia-smi output was empty.", "nvidia-smi 출력이 비어 있습니다.")
             case .invalidOutput(let line):
-                return "nvidia-smi output could not be parsed: \(line)"
+                return language.text("nvidia-smi output could not be parsed: \(line)", "nvidia-smi 출력을 파싱할 수 없습니다: \(line)")
             case .invalidProcessOutput(let line):
-                return "nvidia-smi process output could not be parsed: \(line)"
+                return language.text("nvidia-smi process output could not be parsed: \(line)", "nvidia-smi process 출력을 파싱할 수 없습니다: \(line)")
             case .invalidPSOutput(let line):
-                return "ps output could not be parsed: \(line)"
+                return language.text("ps output could not be parsed: \(line)", "ps 출력을 파싱할 수 없습니다: \(line)")
             case .askPassScriptCreationFailed:
-                return "SSH 비밀번호 인증을 위한 임시 스크립트를 만들지 못했습니다."
+                return language.text("Failed to create the temporary script for SSH password authentication.", "SSH 비밀번호 인증을 위한 임시 스크립트를 만들지 못했습니다.")
             case .missingTarget:
-                return "SSH target is missing."
+                return language.text("SSH target is missing.", "SSH target이 비어 있습니다.")
             }
         }
     }
@@ -87,6 +88,31 @@ struct SSHMetricsFetcher: Sendable {
                 commandLine: details.commandLine
             )
         }
+    }
+
+    func fetchProcessStatuses(
+        settings: AppSettings,
+        pids: [Int],
+        password: String? = nil
+    ) async throws -> [RemoteProcessStatus] {
+        let normalized = settings.normalized()
+        guard normalized.isConfigured else {
+            throw FetchError.missingTarget
+        }
+
+        let uniquePIDs = Array(Set(pids)).sorted()
+        guard !uniquePIDs.isEmpty else {
+            return []
+        }
+
+        let output = try await runSSHCommand(
+            settings: normalized,
+            remoteCommand: Self.buildPSLookupCommand(pids: uniquePIDs),
+            password: password,
+            allowEmptyOutput: true
+        )
+
+        return try Self.parsePSSection(output)
     }
 
     static func parse(_ output: String) throws -> [GPUReading] {
@@ -159,7 +185,7 @@ struct SSHMetricsFetcher: Sendable {
         return try lines.map(parseProcessLine(_:))
     }
 
-    private static func parsePSSection(_ output: String) throws -> [ProcessDetails] {
+    private static func parsePSSection(_ output: String) throws -> [RemoteProcessStatus] {
         let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             return []
@@ -403,7 +429,7 @@ struct SSHMetricsFetcher: Sendable {
         return String(output[..<endIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private static func parsePSLine(_ line: String) throws -> ProcessDetails {
+    private static func parsePSLine(_ line: String) throws -> RemoteProcessStatus {
         let columns = line
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .split(maxSplits: 2, omittingEmptySubsequences: true, whereSeparator: \.isWhitespace)
@@ -413,16 +439,10 @@ struct SSHMetricsFetcher: Sendable {
         }
 
         let commandLine = columns.count == 3 ? String(columns[2]) : nil
-        return ProcessDetails(
+        return RemoteProcessStatus(
             pid: pid,
             user: String(columns[1]),
             commandLine: commandLine
         )
     }
-}
-
-private struct ProcessDetails: Equatable, Sendable {
-    let pid: Int
-    let user: String
-    let commandLine: String?
 }
