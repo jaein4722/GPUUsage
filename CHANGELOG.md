@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 - 2026-04-01
+
+- Added process exit notifications with per-process watch controls, notification history, and permission management.
+- Added GPU idle notifications with configurable idle duration and memory threshold settings.
+- Reworked Settings with native tabbed sections for connection, notifications, appearance, advanced options, and about information.
+- Added `~/.ssh/config` host import and backfilling for target, port, and identity values.
+- Added English / Korean language selection, improved About information, and refreshed user-facing documentation and screenshots.
+- Added local test app build helpers, refreshed app branding, and improved release/readme packaging details.
+
 ## 0.2.4 - 2026-03-31
 
 - Added a Dock icon toggle in Appearance settings for users who want GPUUsage visible in the Dock and App Switcher.
