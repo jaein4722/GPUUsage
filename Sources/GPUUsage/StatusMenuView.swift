@@ -138,7 +138,10 @@ private struct GPUListRow: View {
 
     private var cardBackgroundColor: Color {
         if gpu.isIdle {
-            return Color(nsColor: .underPageBackgroundColor).opacity(0.88)
+            let base = NSColor.controlBackgroundColor
+            let tint = NSColor.separatorColor
+            let mixed = base.blended(withFraction: 0.10, of: tint) ?? base
+            return Color(nsColor: mixed)
         }
 
         return Color(nsColor: .controlBackgroundColor)
