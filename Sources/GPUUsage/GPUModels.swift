@@ -132,6 +132,59 @@ enum SSHAuthenticationMode: String, Codable, CaseIterable, Equatable, Hashable, 
     }
 }
 
+enum SSHPasswordSessionState: Equatable, Sendable {
+    case notRequired
+    case missing
+    case locked
+    case unlocked
+
+    func title(in language: AppInterfaceLanguage) -> String {
+        switch self {
+        case .notRequired:
+            return language.text("Not required", "불필요")
+        case .missing:
+            return language.text("Not saved", "저장 안 됨")
+        case .locked:
+            return language.text("Locked", "잠김")
+        case .unlocked:
+            return language.text("Unlocked", "해제됨")
+        }
+    }
+
+    func detailText(in language: AppInterfaceLanguage) -> String {
+        switch self {
+        case .notRequired:
+            return language.text(
+                "Key-based authentication is active, so no SSH password is needed.",
+                "키 기반 인증을 사용 중이라 SSH 비밀번호가 필요하지 않습니다."
+            )
+        case .missing:
+            return language.text(
+                "Save an SSH password first. Background polling will stay paused until a password is saved and unlocked.",
+                "먼저 SSH 비밀번호를 저장해야 합니다. 저장 후 세션에서 한 번 해제하기 전까지 background polling은 멈춘 상태를 유지합니다."
+            )
+        case .locked:
+            return language.text(
+                "A password is saved in Keychain, but this app session has not unlocked it yet. Unlock once to avoid repeated Keychain prompts during polling.",
+                "Keychain에 저장된 비밀번호는 있지만 현재 앱 세션에서 아직 해제하지 않았습니다. polling 중 반복 prompt를 막으려면 한 번만 해제하세요."
+            )
+        case .unlocked:
+            return language.text(
+                "The saved SSH password is cached in memory for this app session. Background polling will not read Keychain again until the app restarts.",
+                "저장된 SSH 비밀번호가 현재 앱 세션 메모리에 캐시되어 있습니다. 앱을 다시 시작하기 전까지 background polling은 Keychain을 다시 읽지 않습니다."
+            )
+        }
+    }
+
+    var supportsUnlockAction: Bool {
+        self == .locked
+    }
+
+    var supportsForgetAction: Bool {
+        self == .locked || self == .unlocked
+    }
+}
+
 enum BusyDetectionMode: String, Codable, CaseIterable, Equatable, Hashable, Identifiable, Sendable {
     case activeProcess
     case memoryThreshold

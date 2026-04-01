@@ -14,6 +14,7 @@ final class GPUUsageStore: ObservableObject {
     @Published private(set) var lastErrorMessage: String?
     @Published private(set) var noticeMessage: String?
     @Published private(set) var notificationPermissionState: NotificationPermissionState = .unsupported
+    @Published private(set) var passwordSessionState: SSHPasswordSessionState
     @Published private(set) var loadingProcessDetailGPUIds = Set<Int>()
     @Published private(set) var watchedProcesses = [ProcessExitWatch]()
     @Published private(set) var watchedIdleGPUs = [GPUIdleWatch]()
@@ -22,13 +23,15 @@ final class GPUUsageStore: ObservableObject {
     private let fetcher: SSHMetricsFetcher
     private let notificationManager: ProcessExitNotificationManager
     private let userDefaults: UserDefaults
-    private let passwordStore = SSHPasswordStore()
+    private let passwordStore: SSHPasswordStore
     private let settingsKey = "gpu_usage.settings"
     private let watchedProcessesKey = "gpu_usage.process_exit_watches"
     private let watchedIdleGPUsKey = "gpu_usage.gpu_idle_watches"
     private let notificationHistoryKey = "gpu_usage.notification_history"
+    private let passwordStoredHintKey = "gpu_usage.password_saved_hint"
     private var pollingTask: Task<Void, Never>?
     private var idleWatchTrackingStates = [String: GPUIdleWatchTrackingState]()
+    private var unlockedSSHPassword: String?
 
     private var language: AppInterfaceLanguage {
         settings.resolvedLanguage
@@ -43,14 +46,24 @@ final class GPUUsageStore: ObservableObject {
         notificationManager: ProcessExitNotificationManager = ProcessExitNotificationManager(),
         userDefaults: UserDefaults = .standard
     ) {
+        let passwordStore = SSHPasswordStore()
+        let settings = Self.loadSettings(from: userDefaults)
         self.fetcher = fetcher
         self.notificationManager = notificationManager
         self.userDefaults = userDefaults
-        self.settings = Self.loadSettings(from: userDefaults)
+        self.passwordStore = passwordStore
+        self.settings = settings
+        self.passwordSessionState = Self.initialPasswordSessionState(
+            settings: settings,
+            passwordStore: passwordStore,
+            userDefaults: userDefaults
+        )
         self.watchedProcesses = Self.loadWatchedProcesses(from: userDefaults)
         self.watchedIdleGPUs = Self.loadWatchedIdleGPUs(from: userDefaults)
         self.notificationHistory = Self.loadNotificationHistory(from: userDefaults)
-        self.lastErrorMessage = self.settings.isConfigured ? nil : self.settings.resolvedLanguage.text("Enter an SSH target to start polling.", "SSH target를 입력하면 polling을 시작합니다.")
+        self.lastErrorMessage = settings.isConfigured
+            ? Self.initialStatusMessage(for: settings, passwordSessionState: self.passwordSessionState)
+            : settings.resolvedLanguage.text("Enter an SSH target to start polling.", "SSH target를 입력하면 polling을 시작합니다.")
 
         configurePolling(resetState: false)
         Task { [weak self] in
@@ -139,27 +152,15 @@ final class GPUUsageStore: ObservableObject {
         NotificationHistoryEntry.recentEntries(from: notificationHistory)
     }
 
-    func applySettings(_ newSettings: AppSettings, password: String = "") {
+    func applySettings(_ newSettings: AppSettings) {
         let normalized = newSettings.normalized()
         let connectionChanged = normalized.connectionFingerprint != settings.connectionFingerprint
-        let trimmedPassword = password.trimmingCharacters(in: .newlines)
-        if normalized.sshAuthenticationMode == .passwordBased {
-            let existingPassword = (try? passwordStore.loadPassword()) ?? ""
-            guard normalized != settings || trimmedPassword != existingPassword else { return }
-
-            do {
-                try passwordStore.savePassword(trimmedPassword)
-            } catch {
-                lastErrorMessage = error.localizedDescription
-                return
-            }
-        } else {
-            guard normalized != settings else { return }
-        }
+        guard normalized != settings else { return }
 
         settings = normalized
         persistSettings()
         noticeMessage = nil
+        synchronizePasswordSessionStateAfterSettingsChange()
 
         if connectionChanged {
             watchedProcesses.removeAll()
@@ -172,9 +173,64 @@ final class GPUUsageStore: ObservableObject {
         configurePolling(resetState: true)
     }
 
-    func loadSavedPassword() -> String {
-        guard settings.sshAuthenticationMode == .passwordBased else { return "" }
-        return (try? passwordStore.loadPassword()) ?? ""
+    func savePasswordForCurrentSession(_ password: String) {
+        let trimmedPassword = password.trimmingCharacters(in: .newlines)
+        guard settings.sshAuthenticationMode == .passwordBased else { return }
+        guard !trimmedPassword.isEmpty else {
+            lastErrorMessage = t("Enter an SSH password before saving it.", "SSH 비밀번호를 입력한 뒤 저장하세요.")
+            return
+        }
+
+        do {
+            try passwordStore.savePassword(trimmedPassword)
+            userDefaults.set(true, forKey: passwordStoredHintKey)
+            unlockedSSHPassword = trimmedPassword
+            passwordSessionState = .unlocked
+            lastErrorMessage = nil
+            noticeMessage = t("SSH password saved and unlocked for this app session.", "SSH 비밀번호를 저장했고 현재 앱 세션에서 해제했습니다.")
+            refreshNow()
+        } catch {
+            lastErrorMessage = error.localizedDescription
+        }
+    }
+
+    func unlockSavedPasswordForCurrentSession() {
+        guard settings.sshAuthenticationMode == .passwordBased else { return }
+
+        do {
+            let password = try passwordStore.loadPassword()
+            guard !password.isEmpty else {
+                userDefaults.set(false, forKey: passwordStoredHintKey)
+                unlockedSSHPassword = nil
+                passwordSessionState = .missing
+                lastErrorMessage = missingPasswordSessionMessage()
+                noticeMessage = t("There is no saved SSH password in Keychain.", "Keychain에 저장된 SSH 비밀번호가 없습니다.")
+                return
+            }
+
+            userDefaults.set(true, forKey: passwordStoredHintKey)
+            unlockedSSHPassword = password
+            passwordSessionState = .unlocked
+            lastErrorMessage = nil
+            noticeMessage = t("SSH password unlocked for this app session.", "현재 앱 세션에서 SSH 비밀번호를 해제했습니다.")
+            refreshNow()
+        } catch {
+            passwordSessionState = hasSavedPasswordHint ? .locked : .missing
+            lastErrorMessage = error.localizedDescription
+        }
+    }
+
+    func forgetSavedPassword() {
+        do {
+            try passwordStore.deletePassword()
+            userDefaults.set(false, forKey: passwordStoredHintKey)
+            unlockedSSHPassword = nil
+            passwordSessionState = settings.sshAuthenticationMode == .passwordBased ? .missing : .notRequired
+            lastErrorMessage = settings.sshAuthenticationMode == .passwordBased ? missingPasswordSessionMessage() : nil
+            noticeMessage = t("Removed the saved SSH password from Keychain.", "Keychain에서 저장된 SSH 비밀번호를 삭제했습니다.")
+        } catch {
+            lastErrorMessage = error.localizedDescription
+        }
     }
 
     func resetConfiguration() {
@@ -187,6 +243,8 @@ final class GPUUsageStore: ObservableObject {
         }
 
         settings = AppSettings()
+        unlockedSSHPassword = nil
+        passwordSessionState = .notRequired
         snapshot = nil
         watchedProcesses = []
         watchedIdleGPUs = []
@@ -196,6 +254,7 @@ final class GPUUsageStore: ObservableObject {
         userDefaults.removeObject(forKey: watchedProcessesKey)
         userDefaults.removeObject(forKey: watchedIdleGPUsKey)
         userDefaults.removeObject(forKey: notificationHistoryKey)
+        userDefaults.removeObject(forKey: passwordStoredHintKey)
         lastErrorMessage = t("Enter an SSH target to start polling.", "SSH target를 입력하면 polling을 시작합니다.")
         noticeMessage = nil
         configurePolling(resetState: false)
@@ -342,8 +401,13 @@ final class GPUUsageStore: ObservableObject {
             isRefreshing = false
         }
 
+        if currentSettings.sshAuthenticationMode == .passwordBased && currentSessionPassword().isEmpty {
+            lastErrorMessage = missingPasswordSessionMessage()
+            return
+        }
+
         do {
-            let password = currentSettings.sshAuthenticationMode == .passwordBased ? loadSavedPassword() : ""
+            let password = currentSessionPassword()
             let fetchedSnapshot = try await fetcher.fetchSummary(
                 settings: currentSettings,
                 password: password.isEmpty ? nil : password
@@ -396,6 +460,55 @@ final class GPUUsageStore: ObservableObject {
         }
     }
 
+    private var hasSavedPasswordHint: Bool {
+        userDefaults.bool(forKey: passwordStoredHintKey)
+    }
+
+    private func currentSessionPassword() -> String {
+        guard settings.sshAuthenticationMode == .passwordBased else { return "" }
+        return unlockedSSHPassword ?? ""
+    }
+
+    private func synchronizePasswordSessionStateAfterSettingsChange() {
+        switch settings.sshAuthenticationMode {
+        case .keyBased:
+            unlockedSSHPassword = nil
+            passwordSessionState = .notRequired
+            if lastErrorMessage == missingPasswordSessionMessage() {
+                lastErrorMessage = nil
+            }
+        case .passwordBased:
+            if !currentSessionPassword().isEmpty {
+                passwordSessionState = .unlocked
+                lastErrorMessage = nil
+            } else if hasSavedPasswordHint || migrateSavedPasswordHintIfNeeded() {
+                passwordSessionState = .locked
+                lastErrorMessage = missingPasswordSessionMessage()
+            } else {
+                passwordSessionState = .missing
+                lastErrorMessage = missingPasswordSessionMessage()
+            }
+        }
+    }
+
+    private func migrateSavedPasswordHintIfNeeded() -> Bool {
+        guard settings.sshAuthenticationMode == .passwordBased else { return false }
+        guard !hasSavedPasswordHint else { return true }
+
+        let hasPassword = passwordStore.hasPasswordWithoutPrompt()
+        if hasPassword {
+            userDefaults.set(true, forKey: passwordStoredHintKey)
+        }
+        return hasPassword
+    }
+
+    private func missingPasswordSessionMessage() -> String {
+        t(
+            "Open Settings and unlock the saved SSH password to resume password-based polling.",
+            "Settings를 열고 저장된 SSH 비밀번호를 한 번 해제해야 password-based polling이 다시 시작됩니다."
+        )
+    }
+
     private func appendNotificationHistory(_ entry: NotificationHistoryEntry) {
         let cutoff = Date().addingTimeInterval(-(7 * 24 * 3600))
         notificationHistory.append(entry)
@@ -420,8 +533,13 @@ final class GPUUsageStore: ObservableObject {
             loadingProcessDetailGPUIds.remove(gpuID)
         }
 
+        if currentSettings.sshAuthenticationMode == .passwordBased && currentSessionPassword().isEmpty {
+            lastErrorMessage = missingPasswordSessionMessage()
+            return
+        }
+
         do {
-            let password = currentSettings.sshAuthenticationMode == .passwordBased ? loadSavedPassword() : ""
+            let password = currentSessionPassword()
             let enrichedProcesses = try await fetcher.fetchProcessDetails(
                 settings: currentSettings,
                 processes: gpu.processes,
@@ -731,5 +849,35 @@ final class GPUUsageStore: ObservableObject {
         }
 
         return history
+    }
+
+    private static func initialPasswordSessionState(
+        settings: AppSettings,
+        passwordStore: SSHPasswordStore,
+        userDefaults: UserDefaults
+    ) -> SSHPasswordSessionState {
+        guard settings.sshAuthenticationMode == .passwordBased else {
+            return .notRequired
+        }
+
+        if userDefaults.bool(forKey: "gpu_usage.password_saved_hint") || passwordStore.hasPasswordWithoutPrompt() {
+            userDefaults.set(true, forKey: "gpu_usage.password_saved_hint")
+            return .locked
+        }
+
+        return .missing
+    }
+
+    private static func initialStatusMessage(for settings: AppSettings, passwordSessionState: SSHPasswordSessionState) -> String? {
+        guard settings.isConfigured else { return nil }
+
+        if settings.sshAuthenticationMode == .passwordBased, passwordSessionState != .unlocked {
+            return settings.resolvedLanguage.text(
+                "Open Settings and unlock the saved SSH password to resume password-based polling.",
+                "Settings를 열고 저장된 SSH 비밀번호를 한 번 해제해야 password-based polling이 다시 시작됩니다."
+            )
+        }
+
+        return nil
     }
 }

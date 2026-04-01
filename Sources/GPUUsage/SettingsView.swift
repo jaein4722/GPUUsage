@@ -23,6 +23,19 @@ struct SettingsView: View {
         language.text(english, korean)
     }
 
+    private var passwordSessionTint: Color {
+        switch store.passwordSessionState {
+        case .unlocked:
+            return .green
+        case .locked:
+            return .orange
+        case .missing:
+            return .secondary
+        case .notRequired:
+            return .secondary
+        }
+    }
+
     private var appVersionText: String {
         let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
         let buildVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
@@ -95,8 +108,10 @@ struct SettingsView: View {
         .onChange(of: draft) { _, _ in
             scheduleAutoApply()
         }
-        .onChange(of: draftPassword) { _, _ in
-            scheduleAutoApply()
+        .onChange(of: draft.sshAuthenticationMode) { _, newValue in
+            if newValue != .passwordBased {
+                draftPassword = ""
+            }
         }
         .task(id: autoApplyRevision) {
             guard autoApplyRevision > 0 else { return }
@@ -170,12 +185,41 @@ struct SettingsView: View {
                 }
 
                 if draft.sshAuthenticationMode == .passwordBased {
+                    LabeledContent(t("Password Session", "비밀번호 세션")) {
+                        Text(store.passwordSessionState.title(in: language))
+                            .foregroundStyle(passwordSessionTint)
+                    }
+
+                    Text(store.passwordSessionState.detailText(in: language))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
                     LabeledContent(t("SSH Password", "SSH 비밀번호")) {
                         SecureField("", text: $draftPassword, prompt: Text(t("Optional", "선택 사항")))
                             .labelsHidden()
                             .textFieldStyle(.roundedBorder)
                             .multilineTextAlignment(.leading)
                             .frame(width: 240)
+                    }
+
+                    HStack(spacing: 8) {
+                        Button(t("Save Password", "비밀번호 저장")) {
+                            applyPasswordSettingsImmediately()
+                            saveDraftPassword()
+                        }
+                        .disabled(draftPassword.trimmingCharacters(in: .newlines).isEmpty)
+
+                        Button(t("Unlock Saved Password", "저장된 비밀번호 해제")) {
+                            applyPasswordSettingsImmediately()
+                            store.unlockSavedPasswordForCurrentSession()
+                        }
+                        .disabled(!store.passwordSessionState.supportsUnlockAction)
+
+                        Button(t("Forget Saved Password", "저장된 비밀번호 삭제"), role: .destructive) {
+                            applyPasswordSettingsImmediately()
+                            store.forgetSavedPassword()
+                        }
+                        .disabled(!store.passwordSessionState.supportsForgetAction)
                     }
                 }
 
@@ -191,7 +235,7 @@ struct SettingsView: View {
             } footer: {
                 Text(
                     draft.sshAuthenticationMode == .passwordBased
-                    ? t("SSH passwords are stored in the macOS Keychain, not in UserDefaults.", "SSH 비밀번호는 UserDefaults가 아니라 macOS Keychain에 저장됩니다.")
+                    ? t("SSH passwords are stored in the macOS Keychain. To avoid repeated Keychain prompts, save the password once and unlock it once per app launch.", "SSH 비밀번호는 macOS Keychain에 저장됩니다. 반복되는 Keychain prompt를 피하려면 비밀번호를 저장한 뒤 앱 실행마다 한 번만 해제하세요.")
                     : t("Key-based mode uses SSH keys and ssh-agent, and does not read Keychain during background polling.", "Key-based 모드에서는 SSH 키와 ssh-agent를 사용하며, background polling 중 Keychain을 읽지 않습니다.")
                 )
             }
@@ -601,9 +645,7 @@ struct SettingsView: View {
         guard !suppressAutoApply else { return }
 
         let normalizedDraft = draft.normalized()
-        let trimmedPassword = draftPassword.trimmingCharacters(in: .newlines)
-
-        store.applySettings(normalizedDraft, password: trimmedPassword)
+        store.applySettings(normalizedDraft)
     }
 
     private func loadCurrentSettings() {
@@ -622,7 +664,7 @@ struct SettingsView: View {
             draft = currentSettings
         }
 
-        draftPassword = draft.sshAuthenticationMode == .passwordBased ? store.loadSavedPassword() : ""
+        draftPassword = ""
         releaseAutoApplySuppression()
     }
 
@@ -637,6 +679,17 @@ struct SettingsView: View {
     private func applySSHConfigHost() {
         guard let selectedSSHConfigHost else { return }
         draft = selectedSSHConfigHost.apply(to: draft)
+    }
+
+    private func saveDraftPassword() {
+        let trimmedPassword = draftPassword.trimmingCharacters(in: .newlines)
+        guard !trimmedPassword.isEmpty else { return }
+        store.savePasswordForCurrentSession(trimmedPassword)
+        draftPassword = ""
+    }
+
+    private func applyPasswordSettingsImmediately() {
+        store.applySettings(draft.normalized())
     }
 
     @ViewBuilder
