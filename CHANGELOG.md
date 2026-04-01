@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2 - 2026-04-01
+
+- Added Sparkle-based in-app update support with standard macOS update behavior.
+- Added secure Sparkle signing flow using `SUPublicEDKey`, signed release assets, and an auto-published `appcast` branch in GitHub Actions.
+- Moved automatic update preferences into `General` settings and simplified the About screen to keep manual update checks in one natural place.
+
 ## 0.3.1 - 2026-04-01
 
 - Added configurable busy GPU detection with support for active process, memory threshold, process-or-memory, and utilization threshold modes.

@@ -16,6 +16,9 @@ xcuserdata/
 *.p12
 *.mobileprovision
 *.keychain-db
+sparkle-private-key.txt
+sparkle-*.key
+*.appcast-signing-key
 
 # Editor / temp files
 *.swp
