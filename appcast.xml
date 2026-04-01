@@ -1,21 +1,23 @@
 <?xml version="1.0" standalone="yes"?>
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
-        <title>GPUUsage</title>
+        <title>NVBeacon</title>
         <item>
-            <title>0.3.3</title>
-            <pubDate>Wed, 01 Apr 2026 07:32:20 +0000</pubDate>
-            <link>https://github.com/jaein4722/GPUUsage</link>
-            <sparkle:fullReleaseNotesLink>https://github.com/jaein4722/GPUUsage/releases/tag/v0.3.3</sparkle:fullReleaseNotesLink>
-            <sparkle:version>14</sparkle:version>
-            <sparkle:shortVersionString>0.3.3</sparkle:shortVersionString>
+            <title>0.3.4</title>
+            <pubDate>Wed, 01 Apr 2026 09:02:47 +0000</pubDate>
+            <link>https://github.com/jaein4722/NVBeacon</link>
+            <sparkle:fullReleaseNotesLink>https://github.com/jaein4722/NVBeacon/releases/tag/v0.3.4</sparkle:fullReleaseNotesLink>
+            <sparkle:version>15</sparkle:version>
+            <sparkle:shortVersionString>0.3.4</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[- Reworked password-based SSH authentication to avoid repeated Keychain prompts during background polling.
-- Added a session-based unlock flow so password-based mode reads Keychain only when the user explicitly saves or unlocks the stored password.
-- Added a one-time security warning before enabling password-based authentication, with a do-not-show-again option.
+            <description sparkle:format="markdown"><![CDATA[NVBeacon is a native macOS menu bar app for monitoring remote NVIDIA GPU servers over SSH with `nvidia-smi`, process exit alerts, and GPU idle notifications.
+
+- Rebranded the app from GPUUsage to NVBeacon across the app UI, packaging output, release metadata, and repository URLs.
+- Renamed the GitHub repository to `jaein4722/NVBeacon` and updated Sparkle/appcast references to the new repository path.
+- Renamed the Homebrew cask integration from `gpuusage` to `nvbeacon` so future release automation and installation paths match the new product name.
 ]]></description>
-            <enclosure url="https://github.com/jaein4722/GPUUsage/releases/download/v0.3.3/GPUUsage-0.3.3.dmg" length="3922399" type="application/octet-stream" sparkle:edSignature="0f564mgRNmnguwSFaHcq3EzJxpLkkqLwWVixR2QWeW5u82FB+HatIaMwCf+Wr9JuyPBw6B/HaXE6INl/wbN6Cg=="/>
+            <enclosure url="https://github.com/jaein4722/NVBeacon/releases/download/v0.3.4/NVBeacon-0.3.4.dmg" length="3918758" type="application/octet-stream" sparkle:edSignature="B1+0I6l+el7UKSTEEOLJYbVAKZldwVRQ7bkltonr2D+aT5ifXVTzUxgNghxTMfH3MKR1gvCP5t8CgOdrRH4jAQ=="/>
         </item>
     </channel>
 </rss>
