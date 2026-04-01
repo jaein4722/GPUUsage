@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_NAME="${APP_NAME:-GPUUsage}"
+APP_NAME="${APP_NAME:-NVBeacon}"
 PRODUCT_NAME="GPUUsage"
 VOLUME_NAME="${VOLUME_NAME:-$APP_NAME}"
 

@@ -184,7 +184,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private func updateMenuTitles() {
         let language = store.settings.resolvedLanguage
         settingsMenuItem.title = language.text("Settings…", "설정…")
-        quitMenuItem.title = language.text("Quit GPUUsage", "GPUUsage 종료")
+        quitMenuItem.title = language.text("Quit NVBeacon", "NVBeacon 종료")
     }
 
     private func updatePopoverSize() {

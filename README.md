@@ -1,8 +1,8 @@
 <a id="readme-top"></a>
 
 <div align="center">
-  <img src="icon.png" alt="GPUUsage Logo" width="128" height="128">
-  <h1>GPUUsage</h1>
+  <img src="icon.png" alt="NVBeacon Logo" width="128" height="128">
+  <h1>NVBeacon</h1>
   <p>A native macOS menu bar app for remote NVIDIA GPU monitoring over SSH.</p>
   <p>
     <img src="https://img.shields.io/github/v/release/jaein4722/GPUUsage?style=flat-square" alt="GitHub Release">
@@ -21,7 +21,7 @@
 
 ## About
 
-GPUUsage gives you a fast view of a remote NVIDIA GPU server from the macOS menu bar without keeping Terminal open.
+NVBeacon gives you a fast view of a remote NVIDIA GPU server from the macOS menu bar without keeping Terminal open.
 
 It connects over `ssh`, runs `nvidia-smi` on the target server, and turns the result into a compact menu bar summary plus a detailed popover UI with GPU utilization, memory, process details, and job alerts. It is built for people who regularly ask:
 
@@ -34,14 +34,14 @@ It connects over `ssh`, runs `nvidia-smi` on the target server, and turns the re
 ## Screenshots
 
 <div align="center">
-  <img src="assets/menu-bar-summary.png" alt="GPUUsage menu bar summary" width="320">
+  <img src="assets/menu-bar-summary.png" alt="NVBeacon menu bar summary" width="320">
 </div>
 
 <p align="center"><em>At-a-glance menu bar summary</em></p>
 
 <div align="center">
-  <img src="assets/popover-overview.png" alt="GPUUsage popover UI in light mode" width="46%">
-  <img src="assets/popover-overview-dark.png" alt="GPUUsage popover UI in dark mode" width="46%">
+  <img src="assets/popover-overview.png" alt="NVBeacon popover UI in light mode" width="46%">
+  <img src="assets/popover-overview-dark.png" alt="NVBeacon popover UI in dark mode" width="46%">
 </div>
 
 <p align="center"><em>Detailed light and dark mode popovers with per-GPU status, process details, and job notification controls</em></p>
@@ -70,15 +70,17 @@ It connects over `ssh`, runs `nvidia-smi` on the target server, and turns the re
 brew install --cask jaein4722/tap/gpuusage
 ```
 
+The Homebrew cask name is still `gpuusage` for compatibility, but it installs `NVBeacon.app`.
+
 ### GitHub Releases
 
 Download the latest `.dmg` from the [Releases page](https://github.com/jaein4722/GPUUsage/releases).
 
 ### Manual Installation
 
-1. Download the latest `GPUUsage.dmg` from [GitHub Releases](https://github.com/jaein4722/GPUUsage/releases).
+1. Download the latest `NVBeacon-<version>.dmg` from [GitHub Releases](https://github.com/jaein4722/GPUUsage/releases).
 2. Open the DMG.
-3. Drag `GPUUsage.app` into `Applications`.
+3. Drag `NVBeacon.app` into `Applications`.
 4. Launch the app from `Applications`.
 5. If macOS blocks the app because it cannot verify the developer, open `System Settings > Privacy & Security` and choose `Open Anyway`.
 
@@ -90,7 +92,7 @@ Download the latest `.dmg` from the [Releases page](https://github.com/jaein4722
 
 ## Quick Start
 
-1. Launch GPUUsage.
+1. Launch NVBeacon.
 2. Right-click the menu bar item and open `Settings…`.
 3. Set `SSH Target` directly or import a saved host from `~/.ssh/config`.
 4. Choose your authentication method.
@@ -102,7 +104,7 @@ All settings apply automatically. There is no separate apply button.
 
 ## Notifications
 
-GPUUsage supports two kinds of work alerts for remote GPU jobs:
+NVBeacon supports two kinds of work alerts for remote GPU jobs:
 
 - `Process Exit`: watch a running GPU process and get notified when it really exits
 - `GPU Idle`: star a GPU and get notified when it stays idle long enough for the next job
@@ -111,7 +113,7 @@ You can manage notification permission, active watches, and recent notification 
 
 ## Settings Overview
 
-GPUUsage uses a native macOS-style settings window with these sections:
+NVBeacon uses a native macOS-style settings window with these sections:
 
 - `General`: server connection, authentication, polling, busy GPU detection, update preferences
 - `Notifications`: permission, test notification, active watches, history, idle thresholds
@@ -131,10 +133,10 @@ The interface can be set to:
 
 ## Notes
 
-- GPUUsage uses your local SSH setup directly, including `~/.ssh/config`.
+- NVBeacon uses your local SSH setup directly, including `~/.ssh/config`.
 - In key-based mode, background polling does not read from Keychain.
 - In password-based mode, the password is stored in macOS Keychain and unlocked into memory once per app session to avoid repeated Keychain prompts during polling.
-- The first time you switch to password-based mode, GPUUsage shows a security warning because this mode is less secure than SSH keys.
+- The first time you switch to password-based mode, NVBeacon shows a security warning because this mode is less secure than SSH keys.
 - If the remote non-interactive shell has a limited `PATH`, set `Remote Command` to an absolute path such as `/usr/bin/nvidia-smi`.
 - Public DMG downloads may still trigger a Gatekeeper warning unless the release is signed and notarized.
 - Short release notes are tracked in [CHANGELOG.md](CHANGELOG.md).

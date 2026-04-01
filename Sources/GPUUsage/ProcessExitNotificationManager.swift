@@ -121,7 +121,7 @@ struct ProcessExitNotificationManager {
         let language = AppLocalizer.currentLanguage()
 
         let content = UNMutableNotificationContent()
-        content.title = language.text("GPUUsage test notification", "GPUUsage 테스트 알림")
+        content.title = language.text("NVBeacon test notification", "NVBeacon 테스트 알림")
         content.body = language.text("Process exit and GPU idle alerts are working normally.", "프로세스 종료 알림과 GPU idle 알림이 정상적으로 표시됩니다.")
         content.sound = .default
         content.interruptionLevel = .active

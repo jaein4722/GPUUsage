@@ -109,7 +109,7 @@ final class GPUUsageStore: ObservableObject {
 
     var menuBarToolTip: String {
         guard settings.isConfigured else {
-            return t("GPUUsage: configure a server to start polling.", "GPUUsage: 서버를 설정하면 polling을 시작합니다.")
+            return t("NVBeacon: configure a server to start polling.", "NVBeacon: 서버를 설정하면 polling을 시작합니다.")
         }
 
         if let snapshot {
@@ -121,14 +121,14 @@ final class GPUUsageStore: ObservableObject {
         }
 
         if isRefreshing {
-            return t("GPUUsage: refreshing server status.", "GPUUsage: 서버 상태를 새로 가져오는 중입니다.")
+            return t("NVBeacon: refreshing server status.", "NVBeacon: 서버 상태를 새로 가져오는 중입니다.")
         }
 
         if let lastErrorMessage {
             return lastErrorMessage
         }
 
-        return "GPUUsage"
+        return "NVBeacon"
     }
 
     var lastUpdatedRelativeText: String? {
@@ -342,7 +342,7 @@ final class GPUUsageStore: ObservableObject {
                 noticeMessage = t("macOS notification permission enabled.", "macOS 알림 권한을 허용했습니다.")
                 appendNotificationHistory(NotificationHistoryEntry(kind: .permissionEnabled, connectionLabel: settings.sshTarget))
             case .denied:
-                noticeMessage = t("Notification permission was denied. Enable GPUUsage notifications in System Settings.", "알림 권한이 거부되었습니다. 시스템 설정에서 GPUUsage 알림을 허용하세요.")
+                noticeMessage = t("Notification permission was denied. Enable NVBeacon notifications in System Settings.", "알림 권한이 거부되었습니다. 시스템 설정에서 NVBeacon 알림을 허용하세요.")
                 appendNotificationHistory(NotificationHistoryEntry(kind: .permissionDenied, connectionLabel: settings.sshTarget))
             case .notDetermined:
                 noticeMessage = t("Could not determine the notification permission state.", "알림 권한 상태를 확인하지 못했습니다.")

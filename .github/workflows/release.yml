@@ -53,7 +53,7 @@ jobs:
           echo "CHANGELOG_NOTES_PATH=${RUNNER_TEMP}/changelog-notes.md" >> "$GITHUB_ENV"
           echo "RELEASE_NOTES_PATH=${RUNNER_TEMP}/release-notes.md" >> "$GITHUB_ENV"
           echo "APPCAST_PATH=${RUNNER_TEMP}/appcast.xml" >> "$GITHUB_ENV"
-          echo "RELEASE_TITLE=GPUUsage ${GITHUB_REF_NAME#v}: macOS menu bar app for remote NVIDIA GPU monitoring over SSH" >> "$GITHUB_ENV"
+          echo "RELEASE_TITLE=NVBeacon ${GITHUB_REF_NAME#v}: macOS menu bar app for remote NVIDIA GPU monitoring over SSH" >> "$GITHUB_ENV"
 
       - name: Extract release notes from changelog
         run: |
@@ -65,7 +65,7 @@ jobs:
       - name: Prepare public release notes
         run: |
           {
-            printf '%s\n\n' 'GPUUsage is a native macOS menu bar app for monitoring remote NVIDIA GPU servers over SSH with `nvidia-smi`, process exit alerts, and GPU idle notifications.'
+            printf '%s\n\n' 'NVBeacon is a native macOS menu bar app for monitoring remote NVIDIA GPU servers over SSH with `nvidia-smi`, process exit alerts, and GPU idle notifications.'
             cat "$CHANGELOG_NOTES_PATH"
           } > "$RELEASE_NOTES_PATH"
 
@@ -86,7 +86,7 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GPUUsage-${{ env.VERSION }}-dmg
+          name: NVBeacon-${{ env.VERSION }}-dmg
           path: dist/*.dmg
           if-no-files-found: error
 
@@ -126,8 +126,8 @@ jobs:
           rm -rf "$APPCAST_WORKDIR"
           mkdir -p "$APPCAST_WORKDIR"
 
-          cp "dist/GPUUsage-${VERSION}.dmg" "$APPCAST_WORKDIR/"
-          cp "$RELEASE_NOTES_PATH" "$APPCAST_WORKDIR/GPUUsage-${VERSION}.md"
+          cp "dist/NVBeacon-${VERSION}.dmg" "$APPCAST_WORKDIR/"
+          cp "$RELEASE_NOTES_PATH" "$APPCAST_WORKDIR/NVBeacon-${VERSION}.md"
 
           printf '%s' "$SPARKLE_PRIVATE_ED_KEY" | .build/artifacts/sparkle/Sparkle/bin/generate_appcast \
             --ed-key-file - \
@@ -179,7 +179,7 @@ jobs:
             exit 0
           fi
 
-          DMG_URL="https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}/GPUUsage-${VERSION}.dmg"
+          DMG_URL="https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}/NVBeacon-${VERSION}.dmg"
 
           gh api \
             --method POST \

@@ -34,8 +34,8 @@ enum AppUpdaterAvailability: Equatable {
             )
         case .requiresAppBundle:
             return language.text(
-                "Updates are available only when GPUUsage runs from a packaged .app bundle.",
-                "업데이트 기능은 GPUUsage가 패키징된 .app 번들로 실행될 때만 사용할 수 있습니다."
+                "Updates are available only when NVBeacon runs from a packaged .app bundle.",
+                "업데이트 기능은 NVBeacon이 패키징된 .app 번들로 실행될 때만 사용할 수 있습니다."
             )
         case .missingFeedURL:
             return language.text(

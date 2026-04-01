@@ -89,13 +89,13 @@ enum AppAppearanceMode: String, Codable, CaseIterable, Equatable, Hashable, Iden
             )
         case .light:
             return language.text(
-                "Always show GPUUsage in light mode.",
-                "GPUUsage를 항상 라이트 모드로 표시합니다."
+                "Always show NVBeacon in light mode.",
+                "NVBeacon을 항상 라이트 모드로 표시합니다."
             )
         case .dark:
             return language.text(
-                "Always show GPUUsage in dark mode.",
-                "GPUUsage를 항상 다크 모드로 표시합니다."
+                "Always show NVBeacon in dark mode.",
+                "NVBeacon을 항상 다크 모드로 표시합니다."
             )
         }
     }
@@ -265,8 +265,8 @@ enum NotificationPermissionState: Equatable, Sendable {
             )
         case .denied:
             return language.text(
-                "GPUUsage notifications are denied in macOS. Enable them in System Settings.",
-                "macOS에서 GPUUsage 알림 권한이 거부된 상태입니다. 시스템 설정에서 허용해야 합니다."
+                "NVBeacon notifications are denied in macOS. Enable them in System Settings.",
+                "macOS에서 NVBeacon 알림 권한이 거부된 상태입니다. 시스템 설정에서 허용해야 합니다."
             )
         case .authorized:
             return language.text(

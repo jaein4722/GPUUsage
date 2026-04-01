@@ -61,13 +61,13 @@ enum AppLanguagePreference: String, Codable, CaseIterable, Equatable, Hashable, 
             )
         case .english:
             return language.text(
-                "Show the GPUUsage interface in English.",
-                "GPUUsage 인터페이스를 영어로 표시합니다."
+                "Show the NVBeacon interface in English.",
+                "NVBeacon 인터페이스를 영어로 표시합니다."
             )
         case .korean:
             return language.text(
-                "Show the GPUUsage interface in Korean.",
-                "GPUUsage 인터페이스를 한국어로 표시합니다."
+                "Show the NVBeacon interface in Korean.",
+                "NVBeacon 인터페이스를 한국어로 표시합니다."
             )
         }
     }

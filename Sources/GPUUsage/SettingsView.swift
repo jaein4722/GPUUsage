@@ -60,6 +60,17 @@ struct SettingsView: View {
         Bundle.main.bundleIdentifier ?? "com.leejaein.GPUUsage"
     }
 
+    private var bundleIdentifierDisplayText: String {
+        if bundleIdentifierText == "com.leejaein.GPUUsage" {
+            return t(
+                "\(bundleIdentifierText) (kept for upgrade compatibility)",
+                "\(bundleIdentifierText) (업데이트 호환성 유지)"
+            )
+        }
+
+        return bundleIdentifierText
+    }
+
     private var repoURL: URL {
         URL(string: "https://github.com/jaein4722/GPUUsage")!
     }
@@ -329,7 +340,7 @@ struct SettingsView: View {
                 .disabled(!appUpdater.availability.isAvailable)
 
                 Text(appUpdater.automaticallyChecksForUpdates
-                     ? t("GPUUsage will periodically look for new releases in the background.", "GPUUsage가 백그라운드에서 주기적으로 새 릴리즈를 확인합니다.")
+                     ? t("NVBeacon will periodically look for new releases in the background.", "NVBeacon이 백그라운드에서 주기적으로 새 릴리즈를 확인합니다.")
                      : t("Automatic update checks are off. You can still check manually from About.", "자동 업데이트 확인이 꺼져 있습니다. About에서 수동 확인은 계속 가능합니다."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -483,7 +494,7 @@ struct SettingsView: View {
                 Toggle(t("Show Dock icon", "Dock 아이콘 표시"), isOn: $draft.showsDockIcon)
 
                 Text(draft.showsDockIcon
-                     ? t("Show the GPUUsage icon in the Dock and App Switcher.", "Dock과 App Switcher에 GPUUsage 아이콘을 표시합니다.")
+                     ? t("Show the NVBeacon icon in the Dock and App Switcher.", "Dock과 App Switcher에 NVBeacon 아이콘을 표시합니다.")
                      : t("Run as a menu bar app and hide the Dock icon.", "메뉴바 전용 앱처럼 동작하며 Dock 아이콘을 숨깁니다."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -562,7 +573,7 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                     .help(t("Open the GitHub repository", "GitHub 저장소 열기"))
 
-                    Text("GPUUsage")
+                    Text("NVBeacon")
                         .font(.title2.weight(.semibold))
 
                     Text(t("Remote NVIDIA GPU monitoring from your macOS menu bar.", "macOS 메뉴바에서 원격 NVIDIA GPU를 확인하는 앱입니다."))
@@ -603,7 +614,7 @@ struct SettingsView: View {
                 AboutCard(title: t("Build Information", "빌드 정보")) {
                     AboutInfoRow(title: t("Version", "버전"), value: appVersionText)
                     AboutInfoRow(title: t("Build", "빌드"), value: buildVersionText)
-                    AboutInfoRow(title: t("Bundle Identifier", "번들 식별자"), value: bundleIdentifierText)
+                    AboutInfoRow(title: t("Bundle Identifier", "번들 식별자"), value: bundleIdentifierDisplayText)
                     AboutInfoRow(title: t("Repository", "저장소"), value: "github.com/jaein4722/GPUUsage")
                     AboutInfoRow(title: t("Developer", "개발자"), value: "github.com/jaein4722")
                 }

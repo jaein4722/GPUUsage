@@ -1,4 +1,4 @@
-# GPUUsage Repository Guide
+# NVBeacon Repository Guide
 
 ## Development Strategy
 
@@ -38,7 +38,7 @@ Tags are the source of truth for GitHub Releases.
 
 Release page guidance:
 
-- Keep release titles in the form `GPUUsage X.Y.Z: macOS menu bar app for remote NVIDIA GPU monitoring over SSH`.
+- Keep release titles in the form `NVBeacon X.Y.Z: macOS menu bar app for remote NVIDIA GPU monitoring over SSH`.
 - Keep the opening release summary keyword-rich and factual. Mention `macOS`, `remote NVIDIA GPU`, `SSH`, `nvidia-smi`, and major alerting capabilities when relevant.
 - Use the matching `CHANGELOG.md` entry for the version-specific details.
 
@@ -72,7 +72,7 @@ Keep commits focused and reviewable.
 ## Packaging Rules
 
 - `scripts/package_app.sh` is the canonical packaging entrypoint.
-- Release artifacts should be DMG-based: `GPUUsage-<version>.dmg`.
+- Release artifacts should be DMG-based: `NVBeacon-<version>.dmg`.
 - Local builds are ad-hoc signed by default.
 - Public distribution without Gatekeeper warnings requires Developer ID signing and notarization.
 

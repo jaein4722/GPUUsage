@@ -1,6 +1,6 @@
 # Development Guide
 
-This document is for contributors and maintainers of GPUUsage.
+This document is for contributors and maintainers of NVBeacon.
 
 ## Prerequisites
 
@@ -37,7 +37,7 @@ The script will:
 Generated app format:
 
 ```text
-GPUUsage-<version>-test-<commit>.app
+NVBeacon-<version>-test-<commit>.app
 ```
 
 For iterative development, the repository also includes:
@@ -67,8 +67,8 @@ The canonical packaging entrypoint is:
 
 By default this produces:
 
-- `dist/GPUUsage.app`
-- `dist/GPUUsage-<version>.dmg`
+- `dist/NVBeacon.app`
+- `dist/NVBeacon-<version>.dmg`
 
 Useful examples:
 
@@ -104,17 +104,17 @@ Ad-hoc local builds are fine for personal testing. Public distribution without G
 Example:
 
 ```bash
-xcrun notarytool store-credentials "GPUUsageNotary"
+xcrun notarytool store-credentials "NVBeaconNotary"
 
 CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
 NOTARIZE=1 \
-KEYCHAIN_PROFILE="GPUUsageNotary" \
+KEYCHAIN_PROFILE="NVBeaconNotary" \
 ./scripts/package_app.sh
 ```
 
 ## Release Flow
 
-GPUUsage uses tag-based GitHub Releases.
+NVBeacon uses tag-based GitHub Releases.
 
 Typical release sequence:
 
@@ -143,12 +143,12 @@ The release workflow:
 
 Release page wording should stay aligned with the repository positioning:
 
-- title format: `GPUUsage X.Y.Z: macOS menu bar app for remote NVIDIA GPU monitoring over SSH`
+- title format: `NVBeacon X.Y.Z: macOS menu bar app for remote NVIDIA GPU monitoring over SSH`
 - opening summary: mention `macOS`, `remote NVIDIA GPU`, `SSH`, `nvidia-smi`, and alerting features when relevant
 
 ## App Updates
 
-GPUUsage uses [Sparkle](https://sparkle-project.org/) for in-app update checks.
+NVBeacon uses [Sparkle](https://sparkle-project.org/) for in-app update checks.
 
 - App-side integration lives in `Sources/GPUUsage/AppUpdater.swift`
 - The packaged app bundle includes `Sparkle.framework`
@@ -186,7 +186,7 @@ Repository secrets expected by the release workflow:
 - `SPARKLE_PUBLIC_ED_KEY`
 - `SPARKLE_PRIVATE_ED_KEY`
 
-The release workflow now fails if these secrets are missing, because GPUUsage treats unsigned update feeds as not ready for production use.
+The release workflow now fails if these secrets are missing, because NVBeacon treats unsigned update feeds as not ready for production use.
 
 ## Homebrew Tap Sync
 
