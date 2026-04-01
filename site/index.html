@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NVBeacon | macOS menu bar app for remote NVIDIA GPU monitoring over SSH</title>
+    <meta
+      name="description"
+      content="NVBeacon is a native macOS menu bar app for remote NVIDIA GPU monitoring over SSH with nvidia-smi, process exit alerts, GPU idle notifications, and Sparkle updates."
+    >
+    <meta
+      name="keywords"
+      content="NVBeacon, macOS GPU monitor, NVIDIA GPU monitor, SSH GPU monitor, nvidia-smi macOS, menu bar app, remote GPU monitoring"
+    >
+    <link rel="canonical" href="https://jaein4722.github.io/NVBeacon/">
+    <link rel="icon" type="image/png" href="./assets/icon.png">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="NVBeacon">
+    <meta
+      property="og:description"
+      content="A native macOS menu bar app for remote NVIDIA GPU monitoring over SSH."
+    >
+    <meta property="og:url" content="https://jaein4722.github.io/NVBeacon/">
+    <meta property="og:image" content="https://jaein4722.github.io/NVBeacon/assets/popover-overview-dark.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="NVBeacon">
+    <meta
+      name="twitter:description"
+      content="Remote NVIDIA GPU monitoring from the macOS menu bar."
+    >
+    <meta name="twitter:image" content="https://jaein4722.github.io/NVBeacon/assets/popover-overview-dark.png">
+    <link rel="stylesheet" href="./styles.css">
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "NVBeacon",
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "macOS 14+",
+        "description": "A native macOS menu bar app for remote NVIDIA GPU monitoring over SSH with nvidia-smi, process exit alerts, GPU idle notifications, and Sparkle updates.",
+        "url": "https://jaein4722.github.io/NVBeacon/",
+        "downloadUrl": "https://github.com/jaein4722/NVBeacon/releases",
+        "softwareVersion": "0.3.4",
+        "author": {
+          "@type": "Person",
+          "name": "jaein4722",
+          "url": "https://github.com/jaein4722"
+        },
+        "image": [
+          "https://jaein4722.github.io/NVBeacon/assets/icon.png",
+          "https://jaein4722.github.io/NVBeacon/assets/popover-overview.png",
+          "https://jaein4722.github.io/NVBeacon/assets/popover-overview-dark.png"
+        ],
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <nav class="topbar">
+          <a class="brand" href="#top">
+            <img src="./assets/icon.png" alt="NVBeacon icon">
+            <span>NVBeacon</span>
+          </a>
+          <div class="topbar-links">
+            <a href="https://github.com/jaein4722/NVBeacon" target="_blank" rel="noreferrer">GitHub</a>
+            <a href="https://github.com/jaein4722/NVBeacon/releases" target="_blank" rel="noreferrer">Releases</a>
+            <a href="https://github.com/jaein4722/NVBeacon/issues" target="_blank" rel="noreferrer">Issues</a>
+          </div>
+        </nav>
+
+        <section class="hero-grid" id="top">
+          <div class="hero-copy">
+            <div class="eyebrow">macOS menu bar GPU monitoring</div>
+            <h1>Remote NVIDIA GPU visibility without living in Terminal.</h1>
+            <p class="hero-text">
+              NVBeacon keeps an SSH-connected GPU server in your menu bar with
+              live utilization, process detail, exit notifications, idle alerts,
+              bilingual UI, and native Sparkle update support.
+            </p>
+            <div class="hero-actions">
+              <a class="button primary" href="https://github.com/jaein4722/NVBeacon/releases" target="_blank" rel="noreferrer">Download DMG</a>
+              <a class="button secondary" href="https://github.com/jaein4722/NVBeacon" target="_blank" rel="noreferrer">View on GitHub</a>
+            </div>
+            <div class="install-card">
+              <div class="install-label">Homebrew</div>
+              <pre><code>brew install --cask jaein4722/tap/nvbeacon</code></pre>
+            </div>
+          </div>
+
+          <div class="hero-visual">
+            <div class="stat-card floating">
+              <div class="stat-label">Built for</div>
+              <div class="stat-value">SSH + nvidia-smi</div>
+              <div class="stat-subtitle">Remote GPU servers on macOS</div>
+            </div>
+            <img
+              class="hero-shot"
+              src="./assets/popover-overview-dark.png"
+              alt="NVBeacon dark mode popover showing multiple GPUs, process details, and alerts"
+            >
+          </div>
+        </section>
+      </header>
+
+      <main>
+        <section class="section">
+          <div class="section-heading">
+            <div class="eyebrow">Why NVBeacon</div>
+            <h2>It answers the questions GPU users keep asking.</h2>
+          </div>
+          <div class="feature-grid">
+            <article class="feature-card">
+              <h3>Is the box busy?</h3>
+              <p>Menu bar summary, configurable busy detection, and a compact popover make server load visible at a glance.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Which job is mine?</h3>
+              <p>Per-GPU process detail shows user, PID, GPU memory, and command preview without keeping a shell open.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Can I reuse this GPU?</h3>
+              <p>Star a GPU to watch for long idle periods and get notified when it becomes a candidate for the next run.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Did my job finish?</h3>
+              <p>Track specific processes and get a native macOS notification when they really exit.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section showcase">
+          <div class="section-heading">
+            <div class="eyebrow">Screenshots</div>
+            <h2>A focused macOS UI instead of another dashboard tab.</h2>
+          </div>
+          <div class="shot-row compact">
+            <figure class="shot-card compact-shot">
+              <img src="./assets/menu-bar-summary.png" alt="NVBeacon menu bar summary with GPU usage text">
+              <figcaption>At-a-glance menu bar summary</figcaption>
+            </figure>
+          </div>
+          <div class="shot-row dual">
+            <figure class="shot-card">
+              <img src="./assets/popover-overview.png" alt="NVBeacon light mode popover UI">
+              <figcaption>Light mode popover with per-GPU details</figcaption>
+            </figure>
+            <figure class="shot-card">
+              <img src="./assets/popover-overview-dark.png" alt="NVBeacon dark mode popover UI">
+              <figcaption>Dark mode popover with process and alert controls</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-heading">
+            <div class="eyebrow">Highlights</div>
+            <h2>Designed around real remote GPU workflows.</h2>
+          </div>
+          <div class="pill-grid">
+            <div class="pill">Native macOS menu bar UI</div>
+            <div class="pill">Remote monitoring over SSH</div>
+            <div class="pill">Process exit notifications</div>
+            <div class="pill">GPU idle alerts</div>
+            <div class="pill">Busy detection rules</div>
+            <div class="pill">Import from ~/.ssh/config</div>
+            <div class="pill">English / Korean UI</div>
+            <div class="pill">Light, dark, and system appearance</div>
+            <div class="pill">Sparkle update support</div>
+          </div>
+        </section>
+
+        <section class="section split">
+          <div>
+            <div class="section-heading inline">
+              <div class="eyebrow">Quick start</div>
+              <h2>Install, point at a server, and monitor from the menu bar.</h2>
+            </div>
+            <ol class="steps">
+              <li>Install NVBeacon from GitHub Releases or Homebrew.</li>
+              <li>Open <strong>Settings</strong> from the menu bar icon.</li>
+              <li>Set an SSH target directly or import from <code>~/.ssh/config</code>.</li>
+              <li>Choose key-based or password-based authentication.</li>
+              <li>Allow notifications if you want process exit or GPU idle alerts.</li>
+            </ol>
+          </div>
+          <aside class="requirements-card">
+            <h3>Requirements</h3>
+            <ul>
+              <li>macOS 14 or later</li>
+              <li>SSH access to the target machine</li>
+              <li><code>nvidia-smi</code> available on the remote host</li>
+            </ul>
+            <div class="support-links">
+              <a href="https://github.com/jaein4722/NVBeacon/releases" target="_blank" rel="noreferrer">Download releases</a>
+              <a href="https://github.com/jaein4722/NVBeacon/blob/master/README.md" target="_blank" rel="noreferrer">Read the README</a>
+              <a href="https://github.com/jaein4722/NVBeacon/issues" target="_blank" rel="noreferrer">Request a feature</a>
+            </div>
+          </aside>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div>
+          <strong>NVBeacon</strong>
+          <span>Remote NVIDIA GPU monitoring for macOS.</span>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/jaein4722/NVBeacon" target="_blank" rel="noreferrer">Repository</a>
+          <a href="https://github.com/jaein4722" target="_blank" rel="noreferrer">GitHub Profile</a>
+          <a href="https://github.com/jaein4722/NVBeacon/releases" target="_blank" rel="noreferrer">Latest Release</a>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>

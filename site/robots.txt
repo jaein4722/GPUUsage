@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://jaein4722.github.io/NVBeacon/sitemap.xml

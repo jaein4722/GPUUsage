@@ -141,6 +141,19 @@ The release workflow:
 - publishes the latest appcast to the `appcast` branch
 - syncs the Homebrew cask repository
 
+## GitHub Pages
+
+The repository also includes a lightweight marketing/SEO landing page under `site/`.
+
+- source files live in `site/`
+- deployment workflow lives in `.github/workflows/pages.yml`
+- Pages should be configured to deploy from GitHub Actions
+- published URL:
+
+```text
+https://jaein4722.github.io/NVBeacon/
+```
+
 Release page wording should stay aligned with the repository positioning:
 
 - title format: `NVBeacon X.Y.Z: macOS menu bar app for remote NVIDIA GPU monitoring over SSH`

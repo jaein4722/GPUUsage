@@ -13,6 +13,8 @@
   <p>
     <a href="https://github.com/jaein4722/NVBeacon/releases">Download Latest Release</a>
     ·
+    <a href="https://jaein4722.github.io/NVBeacon/">Website</a>
+    ·
     <a href="https://github.com/jaein4722/NVBeacon/issues">Report Bug</a>
     ·
     <a href="https://github.com/jaein4722/NVBeacon/issues">Request Feature</a>
