@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.3 - 2026-04-01
+
+- Reworked password-based SSH authentication to avoid repeated Keychain prompts during background polling.
+- Added a session-based unlock flow so password-based mode reads Keychain only when the user explicitly saves or unlocks the stored password.
+- Added a one-time security warning before enabling password-based authentication, with a do-not-show-again option.
+
 ## 0.3.2 - 2026-04-01
 
 - Added Sparkle-based in-app update support with standard macOS update behavior.
