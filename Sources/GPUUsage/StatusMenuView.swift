@@ -103,9 +103,10 @@ struct StatusMenuView: View {
             }
 
             if let snapshot = store.snapshot {
+                let busyCount = snapshot.busyCount(using: store.settings)
                 HStack(spacing: 6) {
                     SummaryPill(title: t("Avg", "평균"), value: "\(snapshot.averageUtilization)%")
-                    SummaryPill(title: t("Busy", "사용중"), value: "\(snapshot.busyCount)/\(snapshot.gpus.count)")
+                    SummaryPill(title: t("Busy", "사용중"), value: "\(busyCount)/\(snapshot.gpus.count)")
                     SummaryPill(title: t("Proc", "프로세스"), value: "\(snapshot.totalProcessCount)")
                     UpdatedPill(date: snapshot.takenAt, language: language)
                 }

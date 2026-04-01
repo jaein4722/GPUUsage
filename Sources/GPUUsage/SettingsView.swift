@@ -204,6 +204,42 @@ struct SettingsView: View {
                         fieldWidth: 72
                     )
                 }
+
+                LabeledContent(t("Busy Detection", "Busy 판정")) {
+                    Picker(t("Busy Detection", "Busy 판정"), selection: $draft.busyDetectionMode) {
+                        ForEach(BusyDetectionMode.allCases) { mode in
+                            Text(mode.title(in: language)).tag(mode)
+                        }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                }
+
+                Text(draft.busyDetectionMode.detailText(in: language))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if draft.busyDetectionMode == .memoryThreshold || draft.busyDetectionMode == .activeProcessOrMemoryThreshold {
+                    LabeledContent(t("Busy Memory Threshold", "Busy 메모리 임계치")) {
+                        NumericStepperField(
+                            value: $draft.busyMemoryThresholdMB,
+                            range: 0...10_240,
+                            suffix: "MB",
+                            fieldWidth: 82
+                        )
+                    }
+                }
+
+                if draft.busyDetectionMode == .utilizationThreshold {
+                    LabeledContent(t("Busy Util Threshold", "Busy 사용률 임계치")) {
+                        NumericStepperField(
+                            value: $draft.busyUtilizationThresholdPercent,
+                            range: 0...100,
+                            suffix: "%",
+                            fieldWidth: 72
+                        )
+                    }
+                }
             } header: {
                 Text(t("Polling", "폴링"))
             } footer: {
@@ -476,6 +512,10 @@ struct SettingsView: View {
                         title: t("Notifications", "알림"),
                         value: store.notificationPermissionState.title(in: language)
                     )
+                    AboutInfoRow(
+                        title: t("Busy Detection", "Busy 판정"),
+                        value: store.settings.busyDetectionMode.title(in: language)
+                    )
                 }
 
                 AboutCard(title: t("Runtime Snapshot", "현재 상태")) {
@@ -483,8 +523,9 @@ struct SettingsView: View {
                     AboutInfoRow(title: t("GPU Idle Watches", "GPU idle 감시"), value: "\(store.watchedIdleGPUs.count)")
 
                     if let snapshot = store.snapshot {
+                        let busyCount = snapshot.busyCount(using: store.settings)
                         AboutInfoRow(title: t("Visible GPUs", "표시 중인 GPU"), value: "\(snapshot.gpus.count)")
-                        AboutInfoRow(title: t("Busy GPUs", "사용 중인 GPU"), value: "\(snapshot.busyCount)")
+                        AboutInfoRow(title: t("Busy GPUs", "사용 중인 GPU"), value: "\(busyCount)")
                         AboutInfoRow(title: t("Processes", "프로세스"), value: "\(snapshot.totalProcessCount)")
                         AboutInfoRow(title: t("Average Utilization", "평균 사용률"), value: "\(snapshot.averageUtilization)%")
                     } else {

@@ -46,14 +46,16 @@ enum MenuBarDisplayMode: String, Codable, CaseIterable, Equatable, Hashable, Ide
         }
     }
 
-    func titleText(for snapshot: GPUSnapshot, language: AppInterfaceLanguage) -> String {
+    func titleText(for snapshot: GPUSnapshot, settings: AppSettings, language: AppInterfaceLanguage) -> String {
+        let busyCount = snapshot.busyCount(using: settings)
+
         switch self {
         case .averageAndBusy:
-            return "GPU \(snapshot.averageUtilization)% · \(snapshot.busyCount)/\(snapshot.gpus.count)"
+            return "GPU \(snapshot.averageUtilization)% · \(busyCount)/\(snapshot.gpus.count)"
         case .averageOnly:
             return "GPU \(snapshot.averageUtilization)%"
         case .busyOnly:
-            return "GPU \(snapshot.busyCount)/\(snapshot.gpus.count)"
+            return "GPU \(busyCount)/\(snapshot.gpus.count)"
         case .iconOnly:
             return ""
         }
@@ -130,6 +132,53 @@ enum SSHAuthenticationMode: String, Codable, CaseIterable, Equatable, Hashable, 
     }
 }
 
+enum BusyDetectionMode: String, Codable, CaseIterable, Equatable, Hashable, Identifiable, Sendable {
+    case activeProcess
+    case memoryThreshold
+    case activeProcessOrMemoryThreshold
+    case utilizationThreshold
+
+    var id: String { rawValue }
+
+    func title(in language: AppInterfaceLanguage) -> String {
+        switch self {
+        case .activeProcess:
+            return language.text("Active Process", "활성 프로세스")
+        case .memoryThreshold:
+            return language.text("Memory Threshold", "메모리 임계치")
+        case .activeProcessOrMemoryThreshold:
+            return language.text("Process or Memory", "프로세스 또는 메모리")
+        case .utilizationThreshold:
+            return language.text("Utilization Threshold", "사용률 임계치")
+        }
+    }
+
+    func detailText(in language: AppInterfaceLanguage) -> String {
+        switch self {
+        case .activeProcess:
+            return language.text(
+                "Count a GPU as busy when `nvidia-smi` reports at least one active compute process.",
+                "`nvidia-smi`에서 active compute process가 하나 이상 보이면 busy로 판단합니다."
+            )
+        case .memoryThreshold:
+            return language.text(
+                "Count a GPU as busy when used memory is above the configured threshold.",
+                "사용 중인 메모리가 지정 임계치를 넘으면 busy로 판단합니다."
+            )
+        case .activeProcessOrMemoryThreshold:
+            return language.text(
+                "Count a GPU as busy when either an active process exists or used memory is above the threshold.",
+                "active process가 있거나 사용 메모리가 임계치를 넘으면 busy로 판단합니다."
+            )
+        case .utilizationThreshold:
+            return language.text(
+                "Legacy behavior: count a GPU as busy when utilization is above the configured threshold.",
+                "기존 방식입니다. 사용률이 지정 임계치를 넘으면 busy로 판단합니다."
+            )
+        }
+    }
+}
+
 enum NotificationPermissionState: Equatable, Sendable {
     case unsupported
     case notDetermined
@@ -184,6 +233,9 @@ struct AppSettings: Codable, Equatable, Sendable {
     var sshIdentityFilePath: String = ""
     var sshAuthenticationMode: SSHAuthenticationMode = .keyBased
     var pollIntervalSeconds: Int = 10
+    var busyDetectionMode: BusyDetectionMode = .activeProcess
+    var busyMemoryThresholdMB: Int = 50
+    var busyUtilizationThresholdPercent: Int = 10
     var remoteCommand: String = Self.defaultRemoteCommand
     var menuBarDisplayMode: MenuBarDisplayMode = .averageAndBusy
     var languagePreference: AppLanguagePreference = .system
@@ -199,6 +251,9 @@ struct AppSettings: Codable, Equatable, Sendable {
         sshIdentityFilePath: String = "",
         sshAuthenticationMode: SSHAuthenticationMode = .keyBased,
         pollIntervalSeconds: Int = 10,
+        busyDetectionMode: BusyDetectionMode = .activeProcess,
+        busyMemoryThresholdMB: Int = 50,
+        busyUtilizationThresholdPercent: Int = 10,
         remoteCommand: String = Self.defaultRemoteCommand,
         menuBarDisplayMode: MenuBarDisplayMode = .averageAndBusy,
         languagePreference: AppLanguagePreference = .system,
@@ -213,6 +268,9 @@ struct AppSettings: Codable, Equatable, Sendable {
         self.sshIdentityFilePath = sshIdentityFilePath
         self.sshAuthenticationMode = sshAuthenticationMode
         self.pollIntervalSeconds = pollIntervalSeconds
+        self.busyDetectionMode = busyDetectionMode
+        self.busyMemoryThresholdMB = busyMemoryThresholdMB
+        self.busyUtilizationThresholdPercent = busyUtilizationThresholdPercent
         self.remoteCommand = remoteCommand
         self.menuBarDisplayMode = menuBarDisplayMode
         self.languagePreference = languagePreference
@@ -229,6 +287,9 @@ struct AppSettings: Codable, Equatable, Sendable {
         case sshIdentityFilePath
         case sshAuthenticationMode
         case pollIntervalSeconds
+        case busyDetectionMode
+        case busyMemoryThresholdMB
+        case busyUtilizationThresholdPercent
         case remoteCommand
         case menuBarDisplayMode
         case languagePreference
@@ -247,6 +308,9 @@ struct AppSettings: Codable, Equatable, Sendable {
             sshIdentityFilePath: try container.decodeIfPresent(String.self, forKey: .sshIdentityFilePath) ?? "",
             sshAuthenticationMode: try container.decodeIfPresent(SSHAuthenticationMode.self, forKey: .sshAuthenticationMode) ?? .keyBased,
             pollIntervalSeconds: try container.decodeIfPresent(Int.self, forKey: .pollIntervalSeconds) ?? 10,
+            busyDetectionMode: try container.decodeIfPresent(BusyDetectionMode.self, forKey: .busyDetectionMode) ?? .activeProcess,
+            busyMemoryThresholdMB: try container.decodeIfPresent(Int.self, forKey: .busyMemoryThresholdMB) ?? 50,
+            busyUtilizationThresholdPercent: try container.decodeIfPresent(Int.self, forKey: .busyUtilizationThresholdPercent) ?? 10,
             remoteCommand: try container.decodeIfPresent(String.self, forKey: .remoteCommand) ?? Self.defaultRemoteCommand,
             menuBarDisplayMode: try container.decodeIfPresent(MenuBarDisplayMode.self, forKey: .menuBarDisplayMode) ?? .averageAndBusy,
             languagePreference: try container.decodeIfPresent(AppLanguagePreference.self, forKey: .languagePreference) ?? .system,
@@ -268,6 +332,8 @@ struct AppSettings: Codable, Equatable, Sendable {
         copy.sshPort = sshPort.trimmingCharacters(in: .whitespacesAndNewlines)
         copy.sshIdentityFilePath = NSString(string: sshIdentityFilePath.trimmingCharacters(in: .whitespacesAndNewlines)).expandingTildeInPath
         copy.pollIntervalSeconds = min(max(pollIntervalSeconds, 1), 300)
+        copy.busyMemoryThresholdMB = min(max(busyMemoryThresholdMB, 0), 10_240)
+        copy.busyUtilizationThresholdPercent = min(max(busyUtilizationThresholdPercent, 0), 100)
         copy.idleNotificationSeconds = min(max(idleNotificationSeconds, 1), 3_600)
         copy.idleMemoryThresholdMB = min(max(idleMemoryThresholdMB, 0), 10_240)
 
@@ -340,6 +406,19 @@ struct GPUReading: Identifiable, Equatable, Sendable {
         processes.isEmpty ? "No active processes" : "\(processes.count) active process\(processes.count == 1 ? "" : "es")"
     }
 
+    func isBusy(using settings: AppSettings) -> Bool {
+        switch settings.busyDetectionMode {
+        case .activeProcess:
+            return !processes.isEmpty
+        case .memoryThreshold:
+            return memoryUsedMB > settings.busyMemoryThresholdMB
+        case .activeProcessOrMemoryThreshold:
+            return !processes.isEmpty || memoryUsedMB > settings.busyMemoryThresholdMB
+        case .utilizationThreshold:
+            return utilization >= settings.busyUtilizationThresholdPercent
+        }
+    }
+
     func isIdle(memoryThresholdMB: Int) -> Bool {
         utilization == 0 && memoryUsedMB <= memoryThresholdMB
     }
@@ -354,8 +433,8 @@ struct GPUSnapshot: Equatable, Sendable {
         return gpus.map(\.utilization).reduce(0, +) / gpus.count
     }
 
-    var busyCount: Int {
-        gpus.filter { $0.utilization >= 10 }.count
+    func busyCount(using settings: AppSettings) -> Int {
+        gpus.filter { $0.isBusy(using: settings) }.count
     }
 
     var totalProcessCount: Int {

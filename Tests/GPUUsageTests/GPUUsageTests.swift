@@ -130,23 +130,47 @@ import Testing
     #expect(settings.appearanceMode == .system)
     #expect(settings.showsDockIcon == false)
     #expect(settings.closesPopoverOnOutsideClick == true)
+    #expect(settings.busyDetectionMode == .activeProcess)
+    #expect(settings.busyMemoryThresholdMB == 50)
+    #expect(settings.busyUtilizationThresholdPercent == 10)
     #expect(settings.idleNotificationSeconds == 300)
     #expect(settings.idleMemoryThresholdMB == 50)
 }
 
 @Test func menuBarDisplayModesBuildExpectedSummary() {
+    let settings = AppSettings(
+        busyDetectionMode: .activeProcess
+    )
     let snapshot = GPUSnapshot(
         takenAt: Date(),
         gpus: [
-            GPUReading(index: 0, name: "A", uuid: "GPU-1", utilization: 10, memoryUsedMB: 1, memoryTotalMB: 10, temperatureCelsius: 40, processes: []),
-            GPUReading(index: 1, name: "B", uuid: "GPU-2", utilization: 90, memoryUsedMB: 2, memoryTotalMB: 10, temperatureCelsius: 50, processes: []),
+            GPUReading(
+                index: 0,
+                name: "A",
+                uuid: "GPU-1",
+                utilization: 10,
+                memoryUsedMB: 1,
+                memoryTotalMB: 10,
+                temperatureCelsius: 40,
+                processes: [GPUProcessReading(gpuUUID: "GPU-1", pid: 1, processName: "python", usedGPUMemoryMB: 1, user: nil, commandLine: nil)]
+            ),
+            GPUReading(
+                index: 1,
+                name: "B",
+                uuid: "GPU-2",
+                utilization: 90,
+                memoryUsedMB: 2,
+                memoryTotalMB: 10,
+                temperatureCelsius: 50,
+                processes: [GPUProcessReading(gpuUUID: "GPU-2", pid: 2, processName: "python", usedGPUMemoryMB: 1, user: nil, commandLine: nil)]
+            ),
         ]
     )
 
-    #expect(MenuBarDisplayMode.averageAndBusy.titleText(for: snapshot, language: .english) == "GPU 50% · 2/2")
-    #expect(MenuBarDisplayMode.averageOnly.titleText(for: snapshot, language: .english) == "GPU 50%")
-    #expect(MenuBarDisplayMode.busyOnly.titleText(for: snapshot, language: .english) == "GPU 2/2")
-    #expect(MenuBarDisplayMode.iconOnly.titleText(for: snapshot, language: .english).isEmpty)
+    #expect(MenuBarDisplayMode.averageAndBusy.titleText(for: snapshot, settings: settings, language: .english) == "GPU 50% · 2/2")
+    #expect(MenuBarDisplayMode.averageOnly.titleText(for: snapshot, settings: settings, language: .english) == "GPU 50%")
+    #expect(MenuBarDisplayMode.busyOnly.titleText(for: snapshot, settings: settings, language: .english) == "GPU 2/2")
+    #expect(MenuBarDisplayMode.iconOnly.titleText(for: snapshot, settings: settings, language: .english).isEmpty)
 }
 
 @Test func exitWatchDoesNotFireWhileProcessIsStillVisible() {
@@ -224,21 +248,56 @@ import Testing
 @Test func normalizesIdleAlertThresholds() {
     let lowerBoundSettings = AppSettings(
         pollIntervalSeconds: 0,
+        busyMemoryThresholdMB: -1,
+        busyUtilizationThresholdPercent: -1,
         idleNotificationSeconds: 0,
         idleMemoryThresholdMB: 50_000
     ).normalized()
     let upperBoundSettings = AppSettings(
         pollIntervalSeconds: 500,
+        busyMemoryThresholdMB: 12_000,
+        busyUtilizationThresholdPercent: 500,
         idleNotificationSeconds: 5_000,
         idleMemoryThresholdMB: 12_000
     ).normalized()
 
     #expect(lowerBoundSettings.pollIntervalSeconds == 1)
+    #expect(lowerBoundSettings.busyMemoryThresholdMB == 0)
+    #expect(lowerBoundSettings.busyUtilizationThresholdPercent == 0)
     #expect(lowerBoundSettings.idleNotificationSeconds == 1)
     #expect(lowerBoundSettings.idleMemoryThresholdMB == 10_240)
     #expect(upperBoundSettings.pollIntervalSeconds == 300)
+    #expect(upperBoundSettings.busyMemoryThresholdMB == 10_240)
+    #expect(upperBoundSettings.busyUtilizationThresholdPercent == 100)
     #expect(upperBoundSettings.idleNotificationSeconds == 3_600)
     #expect(upperBoundSettings.idleMemoryThresholdMB == 10_240)
+}
+
+@Test func busyDetectionModesUseConfiguredRule() {
+    let process = GPUProcessReading(
+        gpuUUID: "GPU-1",
+        pid: 1001,
+        processName: "python",
+        usedGPUMemoryMB: 4_096,
+        user: nil,
+        commandLine: nil
+    )
+    let gpu = GPUReading(
+        index: 0,
+        name: "A6000",
+        uuid: "GPU-1",
+        utilization: 0,
+        memoryUsedMB: 4_096,
+        memoryTotalMB: 48_068,
+        temperatureCelsius: 31,
+        processes: [process]
+    )
+
+    #expect(gpu.isBusy(using: AppSettings(busyDetectionMode: .activeProcess)))
+    #expect(gpu.isBusy(using: AppSettings(busyDetectionMode: .memoryThreshold, busyMemoryThresholdMB: 2_000)))
+    #expect(!gpu.isBusy(using: AppSettings(busyDetectionMode: .memoryThreshold, busyMemoryThresholdMB: 8_000)))
+    #expect(gpu.isBusy(using: AppSettings(busyDetectionMode: .activeProcessOrMemoryThreshold, busyMemoryThresholdMB: 8_000)))
+    #expect(!gpu.isBusy(using: AppSettings(busyDetectionMode: .utilizationThreshold, busyUtilizationThresholdPercent: 10)))
 }
 
 @Test func gpuIdleWatchMatchesByUUIDOrIndex() {

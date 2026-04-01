@@ -70,7 +70,7 @@ final class GPUUsageStore: ObservableObject {
         guard settings.isConfigured else { return "GPU --" }
 
         if let snapshot {
-            return settings.menuBarDisplayMode.titleText(for: snapshot, language: language)
+            return settings.menuBarDisplayMode.titleText(for: snapshot, settings: settings, language: language)
         }
 
         if isRefreshing {
@@ -98,9 +98,10 @@ final class GPUUsageStore: ObservableObject {
         }
 
         if let snapshot {
+            let busyCount = snapshot.busyCount(using: settings)
             return t(
-                "Average \(snapshot.averageUtilization)% · Busy \(snapshot.busyCount)/\(snapshot.gpus.count) · Processes \(snapshot.totalProcessCount)",
-                "평균 \(snapshot.averageUtilization)% · 사용중 \(snapshot.busyCount)/\(snapshot.gpus.count) · 프로세스 \(snapshot.totalProcessCount)"
+                "Average \(snapshot.averageUtilization)% · Busy \(busyCount)/\(snapshot.gpus.count) · Processes \(snapshot.totalProcessCount)",
+                "평균 \(snapshot.averageUtilization)% · 사용중 \(busyCount)/\(snapshot.gpus.count) · 프로세스 \(snapshot.totalProcessCount)"
             )
         }
 

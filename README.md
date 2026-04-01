@@ -52,6 +52,7 @@ It connects over `ssh`, runs `nvidia-smi` on the target server, and turns the re
 - On-demand process details with user, PID, memory, and command preview
 - Process exit notifications through macOS Notification Center
 - GPU idle notifications with configurable idle duration and memory threshold
+- Configurable busy GPU detection based on active processes, memory usage, or utilization
 - Import from local `~/.ssh/config`
 - SSH key authentication and password-based authentication
 - English / Korean UI with a `System` language option
@@ -108,7 +109,7 @@ You can manage notification permission, active watches, and recent notification 
 
 GPUUsage uses a native macOS-style settings window with these sections:
 
-- `General`: server connection, authentication, polling
+- `General`: server connection, authentication, polling, busy GPU detection
 - `Notifications`: permission, test notification, active watches, history, idle thresholds
 - `Appearance`: theme, language, Dock icon, menu bar summary, popover behavior
 - `Advanced`: remote command override
