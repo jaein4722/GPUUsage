@@ -32,9 +32,15 @@ Release flow:
 2. Verify `swift test` passes.
 3. Create a tag in the form `vX.Y.Z`.
 4. Push the tag.
-5. GitHub Actions builds a DMG and publishes a GitHub Release from that tag.
+5. GitHub Actions builds a DMG and publishes a GitHub Release from that tag with an SEO-friendly title and opening summary.
 
 Tags are the source of truth for GitHub Releases.
+
+Release page guidance:
+
+- Keep release titles in the form `GPUUsage X.Y.Z: macOS menu bar app for remote NVIDIA GPU monitoring over SSH`.
+- Keep the opening release summary keyword-rich and factual. Mention `macOS`, `remote NVIDIA GPU`, `SSH`, `nvidia-smi`, and major alerting capabilities when relevant.
+- Use the matching `CHANGELOG.md` entry for the version-specific details.
 
 ## Day-to-Day Workflow
 
@@ -86,4 +92,5 @@ Avoid committing real hostnames, usernames, or internal IP addresses in docs or 
 
 - Tag pushes create GitHub Releases automatically.
 - The release workflow should upload the generated DMG asset for the matching tag.
+- The release workflow should keep release titles and opening summaries aligned with the repository SEO positioning.
 - If signing or notarization is enabled in CI later, keep secrets in GitHub Actions secrets, never in the repository.

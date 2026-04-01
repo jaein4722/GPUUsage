@@ -134,10 +134,17 @@ The release workflow:
 
 - builds the DMG on a macOS runner
 - publishes the GitHub Release
-- uses the matching `CHANGELOG.md` section as the release notes
+- sets an SEO-friendly release title for remote NVIDIA GPU monitoring on macOS
+- prepends a keyword-rich product summary before the version-specific notes
+- uses the matching `CHANGELOG.md` section as the version-specific release notes
 - generates a Sparkle `appcast.xml`
 - publishes the latest appcast to the `appcast` branch
 - syncs the Homebrew cask repository
+
+Release page wording should stay aligned with the repository positioning:
+
+- title format: `GPUUsage X.Y.Z: macOS menu bar app for remote NVIDIA GPU monitoring over SSH`
+- opening summary: mention `macOS`, `remote NVIDIA GPU`, `SSH`, `nvidia-smi`, and alerting features when relevant
 
 ## App Updates
 

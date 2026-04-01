@@ -3,7 +3,7 @@
 <div align="center">
   <img src="icon.png" alt="GPUUsage Logo" width="128" height="128">
   <h1>GPUUsage</h1>
-  <p>A native macOS menu bar app for monitoring remote NVIDIA GPU servers over SSH.</p>
+  <p>A native macOS menu bar app for remote NVIDIA GPU monitoring over SSH.</p>
   <p>
     <img src="https://img.shields.io/github/v/release/jaein4722/GPUUsage?style=flat-square" alt="GitHub Release">
     <img src="https://img.shields.io/badge/macOS-14%2B-111111?style=flat-square&logo=apple" alt="macOS 14+">
@@ -21,14 +21,14 @@
 
 ## About
 
-GPUUsage gives you a fast view of a remote GPU box without keeping a terminal open.
+GPUUsage gives you a fast view of a remote NVIDIA GPU server from the macOS menu bar without keeping Terminal open.
 
-It connects over `ssh`, runs `nvidia-smi` on the target server, and turns the result into a compact menu bar summary plus a detailed popover UI. It is built for people who regularly ask:
+It connects over `ssh`, runs `nvidia-smi` on the target server, and turns the result into a compact menu bar summary plus a detailed popover UI with GPU utilization, memory, process details, and job alerts. It is built for people who regularly ask:
 
 - Is the server busy right now?
-- Which GPU is being used?
+- Which GPU is running my job?
 - Which process is running on that GPU?
-- Did my job finish?
+- Did my training job finish?
 - Has a watched GPU stayed idle long enough to reuse?
 
 ## Screenshots
@@ -40,17 +40,19 @@ It connects over `ssh`, runs `nvidia-smi` on the target server, and turns the re
 <p align="center"><em>At-a-glance menu bar summary</em></p>
 
 <div align="center">
-  <img src="assets/popover-overview.png" alt="GPUUsage popover UI" width="620">
+  <img src="assets/popover-overview.png" alt="GPUUsage popover UI in light mode" width="46%">
+  <img src="assets/popover-overview-dark.png" alt="GPUUsage popover UI in dark mode" width="46%">
 </div>
 
-<p align="center"><em>Detailed popover with per-GPU status, process details, and notification controls</em></p>
+<p align="center"><em>Detailed light and dark mode popovers with per-GPU status, process details, and job notification controls</em></p>
 
 ## Features
 
 - Native macOS menu bar UI with compact status text or icon-only mode
+- Remote NVIDIA GPU monitoring over `ssh` using `nvidia-smi`
 - Per-GPU utilization, memory, temperature, and process count
 - On-demand process details with user, PID, memory, and command preview
-- Process exit notifications through macOS Notification Center
+- Job completion alerts through macOS Notification Center when watched GPU processes exit
 - GPU idle notifications with configurable idle duration and memory threshold
 - Configurable busy GPU detection based on active processes, memory usage, or utilization
 - Built-in update checks using Sparkle, the standard macOS update framework
@@ -92,7 +94,7 @@ Download the latest `.dmg` from the [Releases page](https://github.com/jaein4722
 2. Right-click the menu bar item and open `Settings…`.
 3. Set `SSH Target` directly or import a saved host from `~/.ssh/config`.
 4. Choose your authentication method.
-5. Allow notifications if you want process exit or GPU idle alerts.
+5. Allow notifications if you want job completion or GPU idle alerts.
 6. Left-click the menu bar item to open the GPU popover.
 7. Open the `About` tab when you want to check for a newer release manually.
 
@@ -100,10 +102,10 @@ All settings apply automatically. There is no separate apply button.
 
 ## Notifications
 
-GPUUsage supports two kinds of alerts:
+GPUUsage supports two kinds of work alerts for remote GPU jobs:
 
 - `Process Exit`: watch a running GPU process and get notified when it really exits
-- `GPU Idle`: star a GPU and get notified when it stays idle long enough
+- `GPU Idle`: star a GPU and get notified when it stays idle long enough for the next job
 
 You can manage notification permission, active watches, and recent notification history from the `Notifications` tab in Settings.
 
@@ -111,7 +113,6 @@ You can manage notification permission, active watches, and recent notification 
 
 GPUUsage uses a native macOS-style settings window with these sections:
 
-- `General`: server connection, authentication, polling, busy GPU detection
 - `General`: server connection, authentication, polling, busy GPU detection, update preferences
 - `Notifications`: permission, test notification, active watches, history, idle thresholds
 - `Appearance`: theme, language, Dock icon, menu bar summary, popover behavior
@@ -136,15 +137,15 @@ The interface can be set to:
 - The first time you switch to password-based mode, GPUUsage shows a security warning because this mode is less secure than SSH keys.
 - If the remote non-interactive shell has a limited `PATH`, set `Remote Command` to an absolute path such as `/usr/bin/nvidia-smi`.
 - Public DMG downloads may still trigger a Gatekeeper warning unless the release is signed and notarized.
-- Short release notes are tracked in [CHANGELOG.md](/Users/leejaein/Documents/SideProjects/GPUUsage/CHANGELOG.md).
+- Short release notes are tracked in [CHANGELOG.md](CHANGELOG.md).
 
 ## For Developers
 
-Development, packaging, test app, and release workflow notes live in [docs/DEVELOPMENT.md](/Users/leejaein/Documents/SideProjects/GPUUsage/docs/DEVELOPMENT.md).
+Development, packaging, test app, and release workflow notes live in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## License
 
-Distributed under the MIT License. See [LICENSE](/Users/leejaein/Documents/SideProjects/GPUUsage/LICENSE) for details.
+Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
